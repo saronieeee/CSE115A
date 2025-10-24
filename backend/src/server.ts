@@ -1,23 +1,18 @@
-  import express, { Application, Request, Response } from 'express';
+import "dotenv/config";
+import express from "express";
+import cors from "cors";
+import morgan from "morgan";
 
+import publicRouter from "./routes/clothing_items_test";
 
-   const app: Application = express();
-   const PORT = process.env.PORT || 3000;
+const app = express();
+app.use(morgan("dev"));
+app.use(express.json());
+app.use(cors({ origin: process.env.ORIGIN || "http://localhost:3000", credentials: true }));
 
+app.use("/api/public", publicRouter);
 
-   // Middleware to parse JSON bodies
-   app.use(express.json());
-   // Middleware to parse URL-encoded form data
-   app.use(express.urlencoded({ extended: true }));
-
-
-   // Basic route
-   app.get('/', (req: Request, res: Response) => {
-     res.send('Hello from TypeScript Express!');
-   });
-
-
-   // Start the server
-   app.listen(PORT, () => {
-     console.log(`Server is running on http://localhost:${PORT}`);
-   });
+const port = Number(process.env.PORT) || 4000;
+app.listen(port, () => {
+  console.log(`API running on http://localhost:${port}`);
+});

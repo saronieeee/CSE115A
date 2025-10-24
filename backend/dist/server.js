@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const public_1 = __importDefault(require("./routes/public"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3000;
 // Middleware to parse JSON bodies
@@ -18,3 +19,4 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
+app.use("/api/public", public_1.default);
