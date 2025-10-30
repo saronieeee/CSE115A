@@ -1,0 +1,197 @@
+.profile-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px;
+  box-sizing: border-box;
+  color: #1f2937; /* gray-800 */
+}
+
+.profile-card {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background: #fff;
+  padding: 18px;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(16,24,40,0.06);
+  margin-bottom: 18px;
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #0b1220;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.profile-info .profile-name {
+  margin: 0;
+  font-size: 16px;
+}
+
+.profile-email {
+  margin: 4px 0 8px 0;
+  color: #6b7280; /* gray-500 */
+  font-size: 13px;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.btn-outline {
+  background: #fff;
+  border: 1px solid #e6e9ef;
+  color: #111827;
+}
+
+.section-title {
+  margin: 18px 0 12px 4px;
+  font-size: 14px;
+  color: #374151; /* gray-700 */
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.stat-card {
+  background: #fff;
+  padding: 14px;
+  border-radius: 10px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.03);
+}
+
+.stat-title {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.stat-value {
+  margin-top: 6px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.stat-sub {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.stat-positive {
+  color: #10b981; /* green-500 */
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+/* Forgotten Finds card */
+.forgotten-card {
+  background: #fff;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 1px 2px rgba(16,24,40,0.03);
+  margin-bottom: 12px;
+}
+
+.forgotten-title {
+  margin: 0 0 10px 4px;
+  font-size: 14px;
+  color: #374151;
+}
+
+.forgotten-list { display: flex; flex-direction: column; gap: 10px; }
+
+.forgotten-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.forgotten-left { display:flex; align-items:center; gap:12px }
+
+.forgotten-icon { width: 44px; height: 44px; border-radius: 8px; background: #f1f5f9; display:flex; align-items:center; justify-content:center }
+
+.forgotten-info .forgotten-name { font-weight:600 }
+.forgotten-sub { font-size: 13px; color: #6b7280 }
+
+.forgotten-badge { margin-left:auto; font-size:12px; padding:6px 10px; border-radius:999px; background:#fff; border:1px solid #e6e9ef }
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #eef2f6;
+}
+
+.item-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.item-info .item-name {
+  font-weight: 600;
+}
+
+.item-sub {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.item-badge {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #e6e9ef;
+  color: #374151;
+}
+
+.notice {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #6b7280;
+  text-align: left;
+  padding: 6px 4px;
+}
+
+/* make sure content isn't too wide on mobile */
+@media (max-width: 420px) {
+  .profile-page { padding: 14px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+}
