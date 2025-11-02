@@ -11,8 +11,8 @@ const router = (0, express_1.Router)();
 router.get("/clothing-items", async (_req, res) => {
     // Select a few safe columns; tweak to match your schema
     const { data, error } = await supabase_1.supabaseService
-        .from("clothing_items")
-        .select("id,user_id, image_url, category, occasion, color, favority, times_worn")
+        .from("closet_items")
+        .select("id,user_id, image_path, category, occasion, color, favority, times_worn")
         .order("created_at", { ascending: false })
         .limit(50);
     if (error)
