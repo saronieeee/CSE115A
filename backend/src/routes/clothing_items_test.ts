@@ -4,7 +4,7 @@ import { resolvePublicImageUrlAndFixPath } from "../utils/resolveImageUrl";
 
 const router = Router();
 
-router.get("/clothing-items", async (_req, res) => {
+router.get("/closet-items", async (_req, res) => {
   const { data, error } = await supabaseService
     .from("closet_items")
     .select("id,user_id,image_path,category,occasion,color,favorite,times_worn");

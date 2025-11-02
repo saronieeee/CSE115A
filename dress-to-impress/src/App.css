@@ -36,3 +36,20 @@
     transform: rotate(360deg);
   }
 }
+
+/* App layout for pages with bottom nav */
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  /* reserve space for bottom nav (64px) */
+  padding-bottom: 80px;
+  flex: 1 0 auto;
+}
+
+.page {
+  padding: 24px;
+}
