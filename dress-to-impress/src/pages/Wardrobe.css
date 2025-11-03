@@ -1,0 +1,192 @@
+.wardrobe-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.wardrobe-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:12px;
+}
+
+.wardrobe-controls { background: transparent; margin-bottom: 12px; }
+.search input { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #e6e9ef; }
+.chips { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap }
+.chip { padding:6px 10px; border-radius:999px; border:1px solid transparent; background:#f3f4f6; font-size:13px }
+.chip.active { background:#0b76ef; color:white }
+
+.empty-card { background:#fff; padding:28px; border-radius:12px; text-align:center; border:1px solid #eef2f6 }
+.empty-icon { font-size:36px; margin-bottom:10px }
+.empty-card h3 { margin:8px 0 }
+.empty-card p { color:#6b7280; margin:8px 0 18px }
+.feature-list { margin-top:14px; display:flex; gap:12px; justify-content:center; color:#6b7280 }
+
+.grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px }
+.item-card { background: transparent; border-radius: 0; overflow: visible; border: none; padding: 0; }
+.item-media { position:relative; height:140px; overflow:hidden }
+.item-media img { width:100%; height:100%; object-fit:cover; display:block }
+.item-media .fav { position:absolute; top:8px; right:8px; background:rgba(255,255,255,0.9); border-radius:50%; border:none; padding:6px; cursor:pointer }
+.item-meta { padding:10px }
+.item-title { font-weight:600 }
+.item-category { font-size:12px; color:#6b7280 }
+
+/* WardrobeItem component styles */
+.wardrobe-item {
+  background: #fff; /* card surface for the image */
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(16,24,40,0.06);
+  overflow: hidden;
+  border: 1px solid transparent;
+  display: block;
+}
+.wardrobe-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1; /* keep image square */
+  overflow: hidden;
+}
+.wardrobe-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 14px; /* round all four corners of the image */
+}
+.wardrobe-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+}
+.wardrobe-fav {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255,255,255,0.9);
+  border-radius: 50%;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+}
+.wardrobe-fav.is-fav { color: #ef4444 }
+.wardrobe-body {
+  /* actions row lives below the image but should not visually connect */
+  background: transparent;
+  border-radius: 0;
+  margin-top: 8px;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end; /* put actions on the right */
+  gap: 8px;
+}
+.wardrobe-title { font-weight:600 }
+.wardrobe-desc { font-size:13px; color:#6b7280 }
+.wardrobe-tags { margin-top:8px; display:flex; gap:8px; flex-wrap:wrap }
+.wardrobe-tag { background:#f3f4f6; padding:6px 8px; font-size:12px; border-radius:999px }
+
+/* Selection toggle (top-left over image) */
+.select-toggle {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px; /* square with rounded corners */
+  background: rgba(255,255,255,0.65); /* translucent square when not selected */
+  border: 1px solid rgba(0,0,0,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #111827;
+  box-shadow: 0 3px 8px rgba(2,6,23,0.06);
+  transition: background 120ms ease, transform 120ms ease;
+  pointer-events: auto;
+}
+.select-toggle:active { transform: scale(0.98) }
+.select-toggle.checked {
+  background: #0b2340; /* keep same dark color when selected, still square */
+  color: #fff;
+  border: none;
+  box-shadow: 0 6px 18px rgba(11,35,64,0.28);
+}
+
+/* actions row: favorite button left, options on right */
+.wardrobe-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end; /* place actions on the right */
+}
+
+.wardrobe-options { position: relative }
+.options-toggle {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  padding: 6px;
+  cursor: pointer;
+  color: #6b7280;
+}
+.item-options-menu { position: absolute; background: #fff; border: 1px solid #e6e9ef; border-radius: 10px; box-shadow: 0 6px 18px rgba(16,24,40,0.08); z-index: 50; }
+.item-options-menu.portal { z-index:10000; }
+.item-options-menu.square { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:6px; gap:6px; border-radius:10px }
+
+/* square rich popup for item details */
+.item-options-menu.square {
+  width: 180px;
+  padding: 0;
+  border-radius: 12px;
+}
+.item-options-menu.square .menu-square-inner {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.menu-square-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+.menu-square-desc {
+  font-size: 12px;
+  color: #6b7280;
+}
+.menu-square-actions {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-top:6px;
+}
+.menu-square-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.menu-square-btn:hover { background:#f8fafc }
+.menu-square-btn.destructive { color:#ef4444 }
+.item-options-menu .menu-icon { width: 36px; height: 36px; border-radius:8px; background: transparent; border: none; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px }
+.item-options-menu .menu-icon:hover { background:#f3f4f6 }
+.item-options-menu .menu-icon.destructive { color:#ef4444 }
+
+/* visible favorite indicator shown under image when item is favorited */
+.wardrobe-fav-indicator { color: #ef4444; font-size: 18px; padding-left: 2px }
+
+/* specific placement to match screenshot: heart on the left, options on the right */
+.wardrobe-actions .wardrobe-fav-indicator { margin-left: 6px }
+.wardrobe-actions .wardrobe-options { margin-right: 4px }
+
+/* responsive */
+@media (max-width:420px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+  .wardrobe-page { padding:12px }
+}
