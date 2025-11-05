@@ -73,4 +73,43 @@ router.patch("/clothing-items/:id", async (req, res) => {
   res.json({ item: data });
 });
 
+// list clothing items with optional multi-category + search + pagination
+router.get("/clothing-items", async (req, res) => {
+  const categoriesRaw = (req.query.categories as string | undefined)?.trim();
+  const categories = categoriesRaw
+    ? categoriesRaw.split(",").map(s => s.trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  const q = (req.query.q as string | undefined)?.trim();
+
+  const limit = Math.min(Math.max(Number(req.query.limit ?? 24), 1), 100); // 1..100
+  const offset = Math.max(Number(req.query.offset ?? 0), 0);
+
+  let query = supabaseService
+    .from("closet_items")
+    .select("id,user_id,image_path,category,occasion,color,favorite,times_worn")
+    .order("id", { ascending: false }) 
+    .range(offset, offset + limit - 1);
+
+  if (categories.length) {
+    query = query.in("category", categories);
+  }
+
+  if (q) {
+    query = query.or(
+      // case sensitive
+      `category.ilike.%${q}%,color.ilike.%${q}%,occasion.ilike.%${q}%`
+    );
+  }
+
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({
+    items: data ?? [],
+    page: { limit, offset, count: data?.length ?? 0 }
+  });
+});
+
+
 export default router;

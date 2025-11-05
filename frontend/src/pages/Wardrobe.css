@@ -1,0 +1,82 @@
+/* Container: responsive, fluid, and themeable */
+.wardrobe-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 960px;           /* don’t get too wide on big screens */
+  padding: clamp(12px, 2vw, 20px);
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  background: #FFF;
+  box-sizing: border-box;
+}
+
+/* On medium+ screens, put search + filters on one row */
+@media (min-width: 640px) {
+  .wardrobe-controls {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+/* Search row */
+.search-row {
+  flex: 1 1 auto;            /* grows with available space */
+  min-width: 220px;
+}
+
+/* Actual search input */
+.search-input {
+  width: 100%;
+  height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #D7DFE9;
+  border-radius: 8px;
+  font-size: clamp(14px, 1.6vw, 16px);
+  line-height: 1.2;
+  box-sizing: border-box;
+  background: #fff;
+  color: #0f172a;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.search-input::placeholder {
+  color: #94A3B8;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+/* Category buttons (chips) */
+.category-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.category-chip {
+  padding: 8px 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 9999px;
+  background: #F8FAFC;
+  color: #0f172a;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.category-chip:hover {
+  background: #cbdef5;
+}
+
+.category-chip.is-active {
+  background: #111827;
+  color: #ffffff;
+  border-color: #0F172B;
+}
