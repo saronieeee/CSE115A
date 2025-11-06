@@ -41,20 +41,26 @@ const Wardrobe: React.FC = () => {
         params.set("offset", "0");
 
         // Use env or dev proxy; fallback to localhost:4000
-        const apiBase = " http://localhost:4000";
-        const url = `${apiBase}/api/clothing-items?${params.toString()}`;
+        const apiBase = "http://localhost:4000";
+        const url = `${apiBase}/api/public/closet-items?${params.toString()}`;
 
-        const r = await fetch(url, { credentials: "include", signal: ac.signal });
+
+        const r = await fetch(url, {
+          credentials: "include",
+          signal: ac.signal,
+        });
         if (!r.ok) throw new Error(`Network error ${r.status}`);
         const d = await r.json();
 
         const rows: any[] = Array.isArray(d?.items) ? d.items : [];
 
-        const mapped: WardrobeItemType[] = rows.map((row) => ({
+        // after fetching d.items
+        const mapped: WardrobeItemType[] = (d.items || []).map((row: any) => ({
           id: row.id,
           title: row.category || "Item",
           category: row.category ?? undefined,
-          imageUrl: row.imageUrl ? String(row.imageUrl).replace(/([^:]\/)\/+/g, "$1") : undefined,
+          // prefer image_url if present, else fall back to image_path
+          imageUrl: row.image_url || row.image_path || undefined,
           favorite: !!row.favorite,
           color: row.color ?? null,
           occasion: row.occasion ?? null,
@@ -80,7 +86,9 @@ const Wardrobe: React.FC = () => {
     return items.filter((it: any) => {
       const cat = (it.category || "").toLowerCase();
       const matchesCat = active.length === 0 || active.includes(cat);
-      const hay = `${it.category ?? ""} ${it.color ?? ""} ${it.occasion ?? ""}`.toLowerCase();
+      const hay = `${it.category ?? ""} ${it.color ?? ""} ${
+        it.occasion ?? ""
+      }`.toLowerCase();
       const matchesText = q === "" || hay.includes(q);
       return matchesCat && matchesText;
     });
@@ -113,7 +121,9 @@ const Wardrobe: React.FC = () => {
 
         <div className="category-buttons">
           <button
-            className={`category-chip ${selected.size === 0 ? "is-active" : ""}`}
+            className={`category-chip ${
+              selected.size === 0 ? "is-active" : ""
+            }`}
             onClick={() => toggleChip("All Items")}
           >
             All Items
@@ -154,7 +164,9 @@ const Wardrobe: React.FC = () => {
           <div className="empty-card">
             <div className="empty-icon">🖼️</div>
             <h3>Your wardrobe is empty</h3>
-            <p>Start building your digital wardrobe by adding your first item.</p>
+            <p>
+              Start building your digital wardrobe by adding your first item.
+            </p>
           </div>
         ) : (
           <div className="grid">
@@ -165,7 +177,7 @@ const Wardrobe: React.FC = () => {
                   title={it.title}
                   description={it.category}
                   tags={[it.category ?? ""]}
-                  imageUrl={it.imageUrl}  // ← uses backend URL, or undefined
+                  imageUrl={it.imageUrl} // ← uses backend URL, or undefined
                   favorite={!!it.favorite}
                   onClick={() => {}}
                 />
@@ -173,9 +185,15 @@ const Wardrobe: React.FC = () => {
                   id={it.id}
                   favorite={!!it.favorite}
                   onToggleFavorite={(id) =>
-                    setItems((prev) => prev.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p)))
+                    setItems((prev) =>
+                      prev.map((p) =>
+                        p.id === id ? { ...p, favorite: !p.favorite } : p
+                      )
+                    )
                   }
-                  onDelete={(id) => setItems((prev) => prev.filter((p) => p.id !== id))}
+                  onDelete={(id) =>
+                    setItems((prev) => prev.filter((p) => p.id !== id))
+                  }
                 />
               </div>
             ))}
