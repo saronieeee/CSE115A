@@ -42,10 +42,7 @@ const Wardrobe: React.FC = () => {
 
         // Use env or dev proxy; fallback to localhost:4000
         const apiBase = " http://localhost:4000";
-        // If your backend route is /api/public/items, use that:
-        const url = `${apiBase}/api/public/items?${params.toString()}`;
-        // If your current route is /api/clothing-items, swap the line above:
-        // const url = `${apiBase}/api/clothing-items?${params.toString()}`;
+        const url = `${apiBase}/api/clothing-items?${params.toString()}`;
 
         const r = await fetch(url, { credentials: "include", signal: ac.signal });
         if (!r.ok) throw new Error(`Network error ${r.status}`);
@@ -57,7 +54,6 @@ const Wardrobe: React.FC = () => {
           id: row.id,
           title: row.category || "Item",
           category: row.category ?? undefined,
-          // ✅ use the backend-provided imageUrl ONLY; normalize double slashes
           imageUrl: row.imageUrl ? String(row.imageUrl).replace(/([^:]\/)\/+/g, "$1") : undefined,
           favorite: !!row.favorite,
           color: row.color ?? null,
