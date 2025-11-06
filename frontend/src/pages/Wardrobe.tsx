@@ -3,104 +3,107 @@ import "./Wardrobe.css";
 import WardrobeItem from "../components/WardrobeItem";
 import ItemDetails from "../components/ItemDetails";
 
-const CATEGORIES = ["Shirt", "Pants", "Jacket"]; // chip list (edit later if dynamic)
+const CATEGORIES = ["Shirt", "Pants", "Jacket"];
 
-// (Renamed to avoid collision with the WardrobeItem component)
 type WardrobeItemType = {
   id: string;
   title: string;
   category?: string;
   imageUrl?: string;
   favorite?: boolean;
+  color?: string | null;
+  occasion?: string | null;
 };
 
-const sampleItems: WardrobeItemType[] = [
-  { id: "1", title: "White Tee", category: "shirt", imageUrl: "https://img.sonofatailor.com/images/customizer/product/extra-heavy-cotton/ss/Black.jpg", favorite: false },
-  { id: "2", title: "Blue Jeans", category: "pants", imageUrl: "https://m.media-amazon.com/images/I/715K4AhGLZS._AC_UY1000_.jpg", favorite: true },
-  { id: "3", title: "Black Dress", category: "dress", imageUrl: "https://static.nike.com/a/images/t_PDP_1280_v1/f_auto,q_auto:eco/99486859-0ff3-46b4-949b-2d16af2ad421/custom-nike-dunk-high-by-you-shoes.png", favorite: false },
-  { id: "4", title: "Red Sneakers", category: "shoes", imageUrl: "https://vader-prod.s3.amazonaws.com/1651851897-best-babydoll-dresses-matteau-dress-1651851878.png", favorite: false },
-  { id: "5", title: "Leather Jacket", category: "jacket", imageUrl: "https://img.sonofatailor.com/images/customizer/product/extra-heavy-cotton/ss/Black.jpg", favorite: true },
-];
-
 const Wardrobe: React.FC = () => {
-  // ===== from first file =====
-  // Start empty to show the empty-state by default; developer can add sample items for preview.
   const [items, setItems] = useState<WardrobeItemType[]>([]);
   const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
 
-  // First file’s simple title filter (kept)
   const filteredByTitle = items.filter((it) =>
     (it.title || "").toLowerCase().includes(query.toLowerCase())
   );
 
-  // ===== from second file =====
-  const [selected, setSelected] = useState<Set<string>>(new Set()); // selected categories
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    setLoading(true);
+    const ac = new AbortController();
+    (async () => {
+      try {
+        setLoading(true);
+        setErr(null);
 
-    const params = new URLSearchParams();
-    const cats = Array.from(selected).join(",");
-    if (cats) params.set("categories", cats); // e.g. "shirt,pants"
-    if (query.trim()) params.set("q", query.trim());
-    params.set("limit", "24");
-    params.set("offset", "0");
+        const params = new URLSearchParams();
+        const cats = Array.from(selected).join(",");
+        if (cats) params.set("categories", cats);
+        if (query.trim()) params.set("q", query.trim());
+        params.set("limit", "24");
+        params.set("offset", "0");
 
-    fetch(`/api/clothing-items?${params.toString()}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("Network error");
-        return r.json();
-      })
-      .then((d) => {
-        // Map backend rows to the UI shape used by your components
-        const mapped: WardrobeItemType[] = (d.items || []).map((row: any) => ({
+        // Use env or dev proxy; fallback to localhost:4000
+        const apiBase = " http://localhost:4000";
+        // If your backend route is /api/public/items, use that:
+        const url = `${apiBase}/api/public/items?${params.toString()}`;
+        // If your current route is /api/clothing-items, swap the line above:
+        // const url = `${apiBase}/api/clothing-items?${params.toString()}`;
+
+        const r = await fetch(url, { credentials: "include", signal: ac.signal });
+        if (!r.ok) throw new Error(`Network error ${r.status}`);
+        const d = await r.json();
+
+        const rows: any[] = Array.isArray(d?.items) ? d.items : [];
+
+        const mapped: WardrobeItemType[] = rows.map((row) => ({
           id: row.id,
           title: row.category || "Item",
-          category: row.category,
-          imageUrl: row.image_path, // your UI expects imageUrl
+          category: row.category ?? undefined,
+          // ✅ use the backend-provided imageUrl ONLY; normalize double slashes
+          imageUrl: row.imageUrl ? String(row.imageUrl).replace(/([^:]\/)\/+/g, "$1") : undefined,
           favorite: !!row.favorite,
+          color: row.color ?? null,
+          occasion: row.occasion ?? null,
         }));
+
         setItems(mapped);
-      })
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
+      } catch (e: any) {
+        if (e?.name !== "AbortError") {
+          console.error(e);
+          setItems([]);
+          setErr("Failed to load closet items.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => ac.abort();
   }, [selected, query]);
 
-  // Second file’s combined (category + text) filter (kept)
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const active = Array.from(selected); // lowercased categories
+    const active = Array.from(selected);
     return items.filter((it: any) => {
       const cat = (it.category || "").toLowerCase();
-      const matchesCat = active.length === 0 || active.includes(cat); // empty = All Items
-      const hay = `${it.category ?? ""} ${(it as any).color ?? ""} ${(it as any).occasion ?? ""}`.toLowerCase();
+      const matchesCat = active.length === 0 || active.includes(cat);
+      const hay = `${it.category ?? ""} ${it.color ?? ""} ${it.occasion ?? ""}`.toLowerCase();
       const matchesText = q === "" || hay.includes(q);
       return matchesCat && matchesText;
     });
   }, [items, query, selected]);
 
-  // Toggle chips (kept)
   const toggleChip = (name: string) => {
-    if (name === "All Items") {
-      setSelected(new Set()); // clear others
-      return;
-    }
+    if (name === "All Items") return setSelected(new Set());
     const next = new Set(selected);
     const key = name.toLowerCase();
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
+    next.has(key) ? next.delete(key) : next.add(key);
     setSelected(next);
   };
 
   return (
     <div className="page page-wardrobe">
-      {/* second file header (kept) */}
       <header className="wardrobe-header">
         <h1>Wardrobe</h1>
       </header>
 
-      {/* second file controls (kept) */}
       <section className="wardrobe-controls">
         <div className="search-row">
           <input
@@ -134,12 +137,10 @@ const Wardrobe: React.FC = () => {
         </div>
       </section>
 
-      {/* first file header (kept) */}
       <div className="wardrobe-header">
         <h2>Hi User!</h2>
       </div>
 
-      {/* first file main content (kept) */}
       <main className="wardrobe-content">
         {loading ? (
           <div className="items-grid">
@@ -147,17 +148,17 @@ const Wardrobe: React.FC = () => {
               <div key={i} className="item-card placeholder" />
             ))}
           </div>
-        ) : items.length === 0 ? (
+        ) : err ? (
+          <div className="empty-card">
+            <div className="empty-icon">⚠️</div>
+            <h3>Couldn’t load your wardrobe</h3>
+            <p>{err}</p>
+          </div>
+        ) : (filtered.length ? filtered : items).length === 0 ? (
           <div className="empty-card">
             <div className="empty-icon">🖼️</div>
             <h3>Your wardrobe is empty</h3>
-            <p>
-              Start building your digital wardrobe by adding your first item. Upload photos of your
-              clothes and let our AI help organize them automatically.
-            </p>
-            <button className="btn btn-primary" onClick={() => setItems(sampleItems)}>
-              Add Your First Item
-            </button>
+            <p>Start building your digital wardrobe by adding your first item.</p>
           </div>
         ) : (
           <div className="grid">
@@ -168,19 +169,15 @@ const Wardrobe: React.FC = () => {
                   title={it.title}
                   description={it.category}
                   tags={[it.category ?? ""]}
-                  imageUrl={it.imageUrl}
+                  imageUrl={it.imageUrl}  // ← uses backend URL, or undefined
                   favorite={!!it.favorite}
-                  onClick={() => {
-                    /* placeholder for viewing details */
-                  }}
+                  onClick={() => {}}
                 />
                 <ItemDetails
                   id={it.id}
                   favorite={!!it.favorite}
                   onToggleFavorite={(id) =>
-                    setItems((prev) =>
-                      prev.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p))
-                    )
+                    setItems((prev) => prev.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p)))
                   }
                   onDelete={(id) => setItems((prev) => prev.filter((p) => p.id !== id))}
                 />

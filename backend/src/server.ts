@@ -11,7 +11,19 @@ import closetRouter from "./routes/closet_items";
 const app = express();
 app.use(morgan("dev"));
 app.use(express.json());
-app.use(cors({ origin: process.env.ORIGIN || "http://localhost:3000", credentials: true }));
+const ALLOW_ORIGINS = [
+  "http://localhost:3000", // CRA
+  "http://localhost:5173", // Vite
+];
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // allow same-origin (like curl/Postman) and known dev origins
+    if (!origin || ALLOW_ORIGINS.includes(origin)) return cb(null, true);
+    return cb(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
 
 app.use("/api/public", publicRouter);
 app.use("/api/outfits", outfitRouter);
