@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "./Wardrobe.css";
+import WardrobeAddItemForm from '../components/WardrobeAddItemForm';
 import WardrobeItem from "../components/WardrobeItem";
 import ItemDetails from "../components/ItemDetails";
 
@@ -27,6 +28,14 @@ const Wardrobe: React.FC = () => {
   // Start empty to show the empty-state by default; developer can add sample items for preview.
   const [items, setItems] = useState<WardrobeItemType[]>([]);
   const [query, setQuery] = useState("");
+  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  const handleOpenForm = () => {
+    setIsFormOpen(true);
+  };
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+  };
 
   // First file’s simple title filter (kept)
   const filteredByTitle = items.filter((it) =>
@@ -97,8 +106,15 @@ const Wardrobe: React.FC = () => {
     <div className="page page-wardrobe">
       {/* second file header (kept) */}
       <header className="wardrobe-header">
-        <h1>Wardrobe</h1>
+        <h1 className="wardrobe-title">Dress To Impress</h1>
+        <button className="wardrobe-add-button" type="button" onClick={handleOpenForm}>
+          Add Item
+        </button>
       </header>
+      {isFormOpen && <WardrobeAddItemForm onClose={handleCloseForm} />}
+      <section className="wardrobe-content">
+        <h2 className="wardrobe-section-heading">Wardrobe</h2>
+        <p>Welcome to your wardrobe. This is a placeholder page — replace with your content.</p>
 
       {/* second file controls (kept) */}
       <section className="wardrobe-controls">

@@ -1,3 +1,74 @@
+/*
+   WARDROBE PAGE LAYOUT & HEADER
+ */
+
+/* main page container */
+.page-wardrobe {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: center;
+  width: 100%;
+  padding: 24px 16px 40px;
+  box-sizing: border-box;
+  min-height: calc(100vh - 80px);
+}
+
+/* top header with title and "add" button */
+.wardrobe-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  box-sizing: border-box;
+  gap: 16px;
+  border-radius: 16px;
+  background-color: #f6f8fb;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+
+.wardrobe-title {
+  margin: 0;
+  font-size: clamp(1rem, 4vw, 1.5rem);
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+}
+
+/* add item button */
+.wardrobe-add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: #000000;
+  border: none;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+  white-space: nowrap;
+}
+
+.wardrobe-add-button:hover,
+.wardrobe-add-button:focus-visible {
+  background-color: #1f2937;
+}
+
+.wardrobe-add-button:active {
+  transform: translateY(1px);
+}
+
+/*
+   SEARCH AND FILTER CONTROLS
+ */
+
 /* Container: responsive, fluid, and themeable */
 .wardrobe-controls {
   display: flex;
@@ -115,6 +186,10 @@
 .item-meta { padding:10px }
 .item-title { font-weight:600 }
 .item-category { font-size:12px; color:#6b7280 }
+
+/* 
+  WARDROBE ITEM CARD COMPONENT
+*/
 
 /* WardrobeItem component styles */
 .wardrobe-item {
@@ -270,6 +345,15 @@
 
 /* responsive */
 @media (max-width:420px) {
+  .wardrobe-header {
+    padding: 12px 16px;
+    gap: 12px;
+  }
+
+  .wardrobe-add-button {
+    padding: 8px 14px;
+    font-size: 0.9rem;
+  }
   .grid { grid-template-columns: repeat(2, 1fr); }
   .wardrobe-page { padding:12px }
 }
