@@ -115,7 +115,7 @@ const Wardrobe: React.FC = () => {
       <section className="wardrobe-content">
         <h2 className="wardrobe-section-heading">Wardrobe</h2>
         <p>Welcome to your wardrobe. This is a placeholder page — replace with your content.</p>
-
+      </section>
       {/* second file controls (kept) */}
       <section className="wardrobe-controls">
         <div className="search-row">
