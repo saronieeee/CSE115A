@@ -1,0 +1,140 @@
+/* Container button */
+.outfit-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+  cursor: pointer;
+
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.outfit-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(2, 8, 23, 0.06);
+  border-color: #cbd5e1;
+}
+
+.outfit-card:focus-visible {
+  outline: 3px solid #7c3aed; /* accessible focus ring (purple-ish) */
+  outline-offset: 2px;
+}
+
+/* Thumbnails row (three side-by-side, responsive) */
+.outfit-thumbs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  min-height: 120px;       /* ensures a stable card height */
+}
+
+.outfit-thumb {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f1f5f9;     /* light fallback if image missing */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1 / 1;     /* keep squares; remove if you prefer natural height */
+}
+
+.outfit-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;       /* crop to fill the square */
+  display: block;
+}
+
+/* Optional small label pill in the corner */
+.thumb-badge {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: #fff;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  backdrop-filter: blur(2px);
+}
+
+/* Meta area */
+.outfit-meta {
+  display: grid;
+  row-gap: 4px;
+}
+
+.outfit-name {
+  font-weight: 600;
+  line-height: 1.2;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.outfit-sub {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Responsive tweaks */
+@media (max-width: 640px) {
+  .outfit-thumbs {
+    min-height: 100px;
+    gap: 5px;
+  }
+}
+
+@media (max-width: 420px) {
+  .outfit-thumbs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .outfit-card {
+    padding: 10px;
+    border-radius: 12px;
+  }
+}
+
+/* Stack the meta lines nicely */
+.outfit-sub {
+  display: grid;
+  row-gap: 6px;
+}
+
+/* A small pill badge style */
+.stat-row { display: flex; }
+
+.stat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #0f172a;
+  background: #eef2ff;           /* indigo-100-ish */
+  border: 1px solid #c7d2fe;     /* indigo-200-ish */
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.stat-badge.stat-muted {
+  background: #f1f5f9;           /* slate-100-ish */
+  border-color: #e2e8f0;         /* slate-200-ish */
+  color: #475569;                 /* slate-600-ish */
+}
+
+/* Tiny dot for visual interest */
+.stat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #6366f1;           /* indigo-500-ish */
+  display: inline-block;
+}

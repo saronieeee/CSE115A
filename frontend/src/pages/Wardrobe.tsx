@@ -4,7 +4,7 @@ import WardrobeAddItemForm from '../components/WardrobeAddItemForm';
 import WardrobeItem from "../components/WardrobeItem";
 import ItemDetails from "../components/ItemDetails";
 
-const CATEGORIES = ["Shirt", "Pants", "Jacket"]; // chip list (edit later if dynamic)
+const CATEGORIES = ["Shirt", "Pants", "Outerwear"]; // chip list (edit later if dynamic)
 
 // (Renamed to avoid collision with the WardrobeItem component)
 type WardrobeItemType = {
