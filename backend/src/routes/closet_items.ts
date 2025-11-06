@@ -1,169 +1,115 @@
 import { Router } from "express";
 import { supabaseService } from "../lib/supabase";
-import { requireUser } from "../lib/requireUser";
 
 const router = Router();
 
-router.use(requireUser);
-
-// list clothing items with optional multi-category + search + pagination
-router.get("/", async (req, res) => {
-  const user = (req as any).user;
-  const queryParams = req.query as Record<string, string | undefined>;
-  const categoriesRaw = queryParams.categories?.trim();
-  const search = queryParams.q?.trim();
-  const limitRaw = queryParams.limit ?? "24";
-  const offsetRaw = queryParams.offset ?? "0";
-
-  const limit = Math.min(Math.max(Number(limitRaw) || 24, 1), 100);
-  const offset = Math.max(Number(offsetRaw) || 0, 0);
-
-  let query = supabaseService
-    .from("closet_items")
-    .select("id,user_id,image_path,category,occasion,color,favorite,times_worn")
-    .eq("user_id", user.id)
-    .order("id", { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  if (categoriesRaw) {
-    const categories = categoriesRaw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (categories.length) {
-      query = query.in("category", categories);
-    }
-  }
-
-  if (search) {
-    query = query.or(`category.ilike.%${search}%,color.ilike.%${search}%,occasion.ilike.%${search}%`);
-  }
-
-  const { data, error } = await query;
-  if (error) {
-    return res.status(400).json({ error: error.message });
-  }
-
-  return res.json({
-    items: data ?? [],
-    page: { limit, offset, count: data?.length ?? 0 },
-  });
+// get a single clothing item by id
+router.get("/clothing-items/:id", async (req, res) => {
+    const { id } = req.params;
+    const { data, error } = await supabaseService
+      .from("closet_items")
+      .select("*")
+      .eq("id", id)
+      .single();
+    if (error) return res.status(404).json({ error: error.message });
+    res.json({ item: data });
 });
 
 // get clothing items by category
-router.get("/type/:category", async (req, res) => {
-  const user = (req as any).user;
-  const { category } = req.params;
-
-  const { data, error } = await supabaseService
-    .from("closet_items")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("category", category);
-
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-
-  return res.json({ items: data ?? [] });
+router.get("/clothing-items/type/:category", async (req, res) => {
+    const { category } = req.params;
+    const { data, error } = await supabaseService
+      .from("closet_items")
+      .select("*")
+      .eq("category", category);
+    if (error) return res.status(500).json({ error: error.message });
+    res.json({ items: data ?? [] });
 });
 
-// get a single clothing item by id
-router.get("/:id", async (req, res) => {
-  const user = (req as any).user;
+router.post("/clothing-items", async (req, res) => {
+  const { user_id, category, image_path, occasion, color, favorite, times_worn } = req.body;
+  if (!user_id || !category) {
+    return res.status(400).json({ error: "Missing required field(s): user_id and category are required." });
+  }
+
+  const insertObj: any = { user_id, category };
+  if (image_path !== undefined) insertObj.image_path = image_path;
+  if (occasion !== undefined) insertObj.occasion = occasion;
+  if (color !== undefined) insertObj.color = color;
+  if (favorite !== undefined) insertObj.favorite = favorite;
+  if (times_worn !== undefined) insertObj.times_worn = times_worn;
+
+  const { data, error } = await supabaseService.from("closet_items").insert([insertObj]).select();
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.status(201).json({ item: data?.[0] });
+});
+
+// delete a clothing item by id
+router.delete("/clothing-items/:id", async (req, res) => {
   const { id } = req.params;
-
-  const { data, error } = await supabaseService
+  const { error } = await supabaseService
     .from("closet_items")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-
-  if (!data) {
-    return res.status(404).json({ error: "Clothing item not found." });
-  }
-
-  return res.json({ item: data });
-});
-
-router.post("/", async (req, res) => {
-  const user = (req as any).user;
-  const { category, image_path, occasion, color, favorite, times_worn } = req.body ?? {};
-
-  if (!category) {
-    return res.status(400).json({ error: "Missing required field: category." });
-  }
-
-  const payload: Record<string, unknown> = {
-    user_id: user.id,
-    category,
-  };
-
-  if (image_path !== undefined) payload.image_path = image_path;
-  if (occasion !== undefined) payload.occasion = occasion;
-  if (color !== undefined) payload.color = color;
-  if (favorite !== undefined) payload.favorite = favorite;
-  if (times_worn !== undefined) payload.times_worn = times_worn;
-
-  const { data, error } = await supabaseService.from("closet_items").insert(payload).select().maybeSingle();
-
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-
-  return res.status(201).json({ item: data });
+    .delete()
+    .eq("id", id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
 // edit a clothing item by id
-router.patch("/:id", async (req, res) => {
-  const user = (req as any).user;
+router.patch("/clothing-items/:id", async (req, res) => {
   const { id } = req.params;
-  const updateFields = req.body ?? {};
-
+  const updateFields = req.body;
   if (Object.keys(updateFields).length === 0) {
     return res.status(400).json({ error: "No fields provided for update." });
   }
-
   const { data, error } = await supabaseService
     .from("closet_items")
     .update(updateFields)
     .eq("id", id)
-    .eq("user_id", user.id)
-    .select()
-    .maybeSingle();
-
-  if (error) {
-    return res.status(500).json({ error: error.message });
-  }
-
-  if (!data) {
-    return res.status(404).json({ error: "Clothing item not found." });
-  }
-
-  return res.json({ item: data });
+    .select("*")
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ item: data });
 });
 
-// delete a clothing item by id
-router.delete("/:id", async (req, res) => {
-  const user = (req as any).user;
-  const { id } = req.params;
+// list clothing items with optional multi-category + search + pagination
+router.get("/clothing-items", async (req, res) => {
+  const categoriesRaw = (req.query.categories as string | undefined)?.trim();
+  const categories = categoriesRaw
+    ? categoriesRaw.split(",").map(s => s.trim().toLowerCase()).filter(Boolean)
+    : [];
 
-  const { error } = await supabaseService
+  const q = (req.query.q as string | undefined)?.trim();
+
+  const limit = Math.min(Math.max(Number(req.query.limit ?? 24), 1), 100); // 1..100
+  const offset = Math.max(Number(req.query.offset ?? 0), 0);
+
+  let query = supabaseService
     .from("closet_items")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id);
+    .select("id,user_id,image_path,category,occasion,color,favorite,times_worn")
+    .order("id", { ascending: false }) 
+    .range(offset, offset + limit - 1);
 
-  if (error) {
-    return res.status(500).json({ error: error.message });
+  if (categories.length) {
+    query = query.in("category", categories);
   }
 
-  return res.json({ success: true });
+  if (q) {
+    query = query.or(
+      // case sensitive
+      `category.ilike.%${q}%,color.ilike.%${q}%,occasion.ilike.%${q}%`
+    );
+  }
+
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+
+  res.json({
+    items: data ?? [],
+    page: { limit, offset, count: data?.length ?? 0 }
+  });
 });
+
 
 export default router;
