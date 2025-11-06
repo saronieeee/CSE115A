@@ -3,6 +3,7 @@ import "./Wardrobe.css";
 import WardrobeAddItemForm from '../components/WardrobeAddItemForm';
 import WardrobeItem from "../components/WardrobeItem";
 import ItemDetails from "../components/ItemDetails";
+import { supabase } from "../lib/supabaseClient";
 
 const CATEGORIES = ["Shirt", "Pants", "Outerwear"]; // chip list (edit later if dynamic)
 
@@ -47,23 +48,33 @@ const Wardrobe: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
+    let isMounted = true;
 
-    const params = new URLSearchParams();
-    const cats = Array.from(selected).join(",");
-    if (cats) params.set("categories", cats); // e.g. "shirt,pants"
-    if (query.trim()) params.set("q", query.trim());
-    params.set("limit", "24");
-    params.set("offset", "0");
+    (async () => {
+      setLoading(true);
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
 
-    fetch(`/api/clothing-items?${params.toString()}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("Network error");
-        return r.json();
-      })
-      .then((d) => {
-        // Map backend rows to the UI shape used by your components
-        const mapped: WardrobeItemType[] = (d.items || []).map((row: any) => ({
+        const params = new URLSearchParams();
+        const cats = Array.from(selected).join(",");
+        if (cats) params.set("categories", cats); // e.g. "shirt,pants"
+        if (query.trim()) params.set("q", query.trim());
+        params.set("limit", "24");
+        params.set("offset", "0");
+
+        const response = await fetch(`/api/clothing-items?${params.toString()}`, {
+          headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+        });
+
+        if (!response.ok) {
+          throw new Error("Network error");
+        }
+
+        const payload = await response.json();
+        if (!isMounted) return;
+
+        const mapped: WardrobeItemType[] = (payload.items || []).map((row: any) => ({
           id: row.id,
           title: row.category || "Item",
           category: row.category,
@@ -71,9 +82,20 @@ const Wardrobe: React.FC = () => {
           favorite: !!row.favorite,
         }));
         setItems(mapped);
-      })
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
+      } catch (_err) {
+        if (isMounted) {
+          setItems([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, [selected, query]);
 
   // Second file’s combined (category + text) filter (kept)

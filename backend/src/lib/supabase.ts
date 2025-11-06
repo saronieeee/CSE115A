@@ -1,8 +1,16 @@
 import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
 
-// Uses service-role so it works even if RLS is on (server-only, never expose to frontend)
-const url = process.env.SUPABASE_URL!;
-const service = process.env.SUPABASE_SERVICE_ROLE!;
+const supabaseUrl = process.env.SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-export const supabaseService = createClient(url, service);
+if (!supabaseUrl || !serviceRoleKey) {
+  throw new Error("Missing Supabase configuration. Check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
+}
+
+export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
+// Legacy alias used throughout the codebase
+export const supabaseService = supabaseAdmin;

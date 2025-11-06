@@ -7,7 +7,6 @@ type Props = {
 };
 
 type FormState = {
-  userId: string;
   category: string;
   occasion: string;
   color: string;
@@ -17,7 +16,6 @@ type FormState = {
 };
 
 const initialState: FormState = {
-  userId: '',
   category: '',
   occasion: '',
   color: '',
@@ -54,10 +52,25 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
     setSuccess(null);
 
     const trimmedCategory = formState.category.trim();
-    const trimmedUserId = formState.userId.trim();
 
-    if (!trimmedUserId || !trimmedCategory) {
-      setError('User ID and category are required.');
+    if (!trimmedCategory) {
+      setError('Category is required.');
+      return;
+    }
+
+    const {
+      data: sessionData,
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      setError(sessionError.message);
+      return;
+    }
+
+    const userId = sessionData.session?.user.id;
+    if (!userId) {
+      setError('You must be signed in.');
       return;
     }
 
@@ -71,7 +84,7 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
     }
 
     const insertPayload = {
-      user_id: trimmedUserId,
+      user_id: userId,
       category: trimmedCategory,
       occasion: formState.occasion.trim() || null,
       color: formState.color.trim() || null,
@@ -110,18 +123,6 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
       </button>
       <h2 className="wardrobe-section-heading">Add a new item</h2>
       <form className="wardrobe-add-form" onSubmit={handleSubmit}>
-        <div className="wardrobe-form-row">
-          <label htmlFor="userId">User ID *</label>
-          <input
-            id="userId"
-            name="userId"
-            value={formState.userId}
-            onChange={handleChange}
-            placeholder="Enter your Supabase user ID"
-            required
-          />
-        </div>
-
         <div className="wardrobe-form-row">
           <label htmlFor="category">Category *</label>
           <select
