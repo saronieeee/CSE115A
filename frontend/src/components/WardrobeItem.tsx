@@ -102,4 +102,5 @@ const WardrobeItem: React.FC<WardrobeItemProps> = ({
   );
 };
 
+export type { WardrobeItemProps };
 export default WardrobeItem;

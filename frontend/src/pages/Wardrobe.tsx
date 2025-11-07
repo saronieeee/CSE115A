@@ -1,9 +1,16 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import "./Wardrobe.css";
 import WardrobeItem from "../components/WardrobeItem";
+import WardrobeAddItemForm from "../components/WardrobeAddItemForm";
 import ItemDetails from "../components/ItemDetails";
+import WardrobeFilters from "../components/WardrobeFilters";
 
-const CATEGORIES = ["Shirt", "Pants", "Jacket"];
+// Define categories in lowercase to match the data
+const CATEGORIES = ["shirt", "pants", "outerwear"];
+
+// Helper function to capitalize first letter for display (if needed elsewhere)
+const capitalizeFirst = (str: string) =>
+  str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 
 type WardrobeItemType = {
   id: string;
@@ -18,95 +25,156 @@ type WardrobeItemType = {
 const Wardrobe: React.FC = () => {
   const [items, setItems] = useState<WardrobeItemType[]>([]);
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  const filteredByTitle = items.filter((it) =>
-    (it.title || "").toLowerCase().includes(query.toLowerCase())
-  );
+  // UI niceties from the other branch
+  const [isSticky, setIsSticky] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  const handleOpenForm = () => setIsFormOpen(true);
+  const handleCloseForm = () => setIsFormOpen(false);
+
+  // Sticky header & responsive checks
+  const handleScroll = useCallback(() => {
+    const offset = window.scrollY;
+    setIsSticky(offset > 100);
+  }, []);
+
+  const handleResize = useCallback(() => {
+    setIsMobileView(window.innerWidth < 1024);
+  }, []);
 
   useEffect(() => {
+    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("resize", handleResize);
+    handleResize(); // initial
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [handleScroll, handleResize]);
+
+  // Fetch items (preserve robust error handling + query/category params)
+  useEffect(() => {
     const ac = new AbortController();
+
     (async () => {
       try {
         setLoading(true);
         setErr(null);
 
         const params = new URLSearchParams();
-        const cats = Array.from(selected).join(",");
-        if (cats) params.set("categories", cats);
+        if (selectedCategories.length > 0) {
+          params.set("categories", selectedCategories.join(","));
+        }
         if (query.trim()) params.set("q", query.trim());
         params.set("limit", "24");
         params.set("offset", "0");
 
-        // Use env or dev proxy; fallback to localhost:4000
+        // Try the public API first (credentials include), then fallback
         const apiBase = "http://localhost:4000";
-        const url = `${apiBase}/api/public/closet-items?${params.toString()}`;
+        const primaryUrl = `${apiBase}/api/public/closet-items?${params.toString()}`;
+        const fallbackUrl = `/api/clothing-items?${params.toString()}`;
 
+        // Helper to map rows to UI model (prefers image_url then image_path)
+        const mapRows = (rows: any[]): WardrobeItemType[] =>
+          rows.map((row: any) => ({
+            id: row.id,
+            title: row.category || "Item",
+            category: (row.category || "").toLowerCase() || undefined,
+            imageUrl: row.image_url || row.image_path || undefined,
+            favorite: !!row.favorite,
+            color: row.color ?? null,
+            occasion: row.occasion ?? null,
+          }));
 
-        const r = await fetch(url, {
+        // attempt #1
+        let res = await fetch(primaryUrl, {
           credentials: "include",
           signal: ac.signal,
         });
-        if (!r.ok) throw new Error(`Network error ${r.status}`);
-        const d = await r.json();
 
-        const rows: any[] = Array.isArray(d?.items) ? d.items : [];
+        // Fallback attempt if primary fails (non-OK)
+        if (!res.ok) {
+          res = await fetch(fallbackUrl, { signal: ac.signal });
+        }
 
-        // after fetching d.items
-        const mapped: WardrobeItemType[] = (d.items || []).map((row: any) => ({
-          id: row.id,
-          title: row.category || "Item",
-          category: row.category ?? undefined,
-          // prefer image_url if present, else fall back to image_path
-          imageUrl: row.image_url || row.image_path || undefined,
-          favorite: !!row.favorite,
-          color: row.color ?? null,
-          occasion: row.occasion ?? null,
-        }));
+        if (!res.ok) throw new Error(`Network error ${res.status}`);
 
-        setItems(mapped);
+        const data = await res.json();
+        const rows: any[] = Array.isArray(data?.items) ? data.items : [];
+        setItems(mapRows(rows));
       } catch (e: any) {
         if (e?.name !== "AbortError") {
           console.error(e);
           setItems([]);
-          setErr("Failed to load closet items.");
+          setErr("Failed to load your wardrobe. Please try again.");
         }
       } finally {
         setLoading(false);
       }
     })();
-    return () => ac.abort();
-  }, [selected, query]);
 
+    return () => ac.abort();
+  }, [selectedCategories, query]);
+
+  // Quick title-only fallback filter (kept from original)
+  const filteredByTitle = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((it) => (it.title || "").toLowerCase().includes(q));
+  }, [items, query]);
+
+  // Combined filter: categories + richer text search (category/color/occasion/title)
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const active = Array.from(selected);
-    return items.filter((it: any) => {
-      const cat = (it.category || "").toLowerCase();
-      const matchesCat = active.length === 0 || active.includes(cat);
-      const hay = `${it.category ?? ""} ${it.color ?? ""} ${
-        it.occasion ?? ""
-      }`.toLowerCase();
-      const matchesText = q === "" || hay.includes(q);
-      return matchesCat && matchesText;
-    });
-  }, [items, query, selected]);
 
+    return items.filter((item: WardrobeItemType) => {
+      // Category filter
+      if (selectedCategories.length > 0) {
+        const cat = (item.category || "").toLowerCase();
+        if (!cat || !selectedCategories.includes(cat)) return false;
+      }
+
+      // Text filter (richer fields)
+      if (q) {
+        const hay = `${item.title ?? ""} ${item.category ?? ""} ${
+          item.color ?? ""
+        } ${item.occasion ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+
+      return true;
+    });
+  }, [items, query, selectedCategories]);
+
+  // Toggle category chips
   const toggleChip = (name: string) => {
-    if (name === "All Items") return setSelected(new Set());
-    const next = new Set(selected);
-    const key = name.toLowerCase();
-    next.has(key) ? next.delete(key) : next.add(key);
-    setSelected(next);
+    if (name === "All Items") {
+      setSelectedCategories([]);
+      return;
+    }
+    const category = name.toLowerCase();
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
   };
 
   return (
-    <div className="page page-wardrobe">
-      <header className="wardrobe-header">
-        <h1>Wardrobe</h1>
+    <div className={`page page-wardrobe ${isMobileView ? "is-mobile" : ""}`}>
+      <header className={`wardrobe-header ${isSticky ? "is-sticky" : ""}`}>
+        <h1 className="wardrobe-title">Dress To Impress</h1>
+        <button className="wardrobe-add-button" type="button" onClick={handleOpenForm}>
+          Add Item
+        </button>
       </header>
+
+      {isFormOpen && <WardrobeAddItemForm onClose={handleCloseForm} />}
 
       <section className="wardrobe-controls">
         <div className="search-row">
@@ -122,14 +190,14 @@ const Wardrobe: React.FC = () => {
         <div className="category-buttons">
           <button
             className={`category-chip ${
-              selected.size === 0 ? "is-active" : ""
+              selectedCategories.length === 0 ? "is-active" : ""
             }`}
             onClick={() => toggleChip("All Items")}
           >
             All Items
           </button>
           {CATEGORIES.map((c) => {
-            const isOn = selected.has(c.toLowerCase());
+            const isOn = selectedCategories.includes(c.toLowerCase());
             return (
               <button
                 key={c}
@@ -142,10 +210,6 @@ const Wardrobe: React.FC = () => {
           })}
         </div>
       </section>
-
-      <div className="wardrobe-header">
-        <h2>Hi User!</h2>
-      </div>
 
       <main className="wardrobe-content">
         {loading ? (
@@ -160,13 +224,17 @@ const Wardrobe: React.FC = () => {
             <h3>Couldn’t load your wardrobe</h3>
             <p>{err}</p>
           </div>
-        ) : (filtered.length ? filtered : items).length === 0 ? (
+        ) : items.length === 0 ? (
           <div className="empty-card">
             <div className="empty-icon">🖼️</div>
             <h3>Your wardrobe is empty</h3>
-            <p>
-              Start building your digital wardrobe by adding your first item.
-            </p>
+            <p>Start building your digital wardrobe by adding your first item.</p>
+          </div>
+        ) : (filtered.length ? filtered : filteredByTitle).length === 0 ? (
+          <div className="empty-card">
+            <div className="empty-icon">🔍</div>
+            <h3>No items found</h3>
+            <p>Try adjusting your filters or search terms to find what you're looking for.</p>
           </div>
         ) : (
           <div className="grid">
@@ -176,8 +244,8 @@ const Wardrobe: React.FC = () => {
                   id={it.id}
                   title={it.title}
                   description={it.category}
-                  tags={[it.category ?? ""]}
-                  imageUrl={it.imageUrl} // ← uses backend URL, or undefined
+                  tags={it.category ? [it.category] : []}
+                  imageUrl={it.imageUrl}
                   favorite={!!it.favorite}
                   onClick={() => {}}
                 />

@@ -1,0 +1,145 @@
+.wardrobe-form-wrapper {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 24px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+}
+
+.wardrobe-add-form {
+  display: grid;
+  gap: 16px;
+}
+
+.wardrobe-close-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  border: none;
+  background-color: rgba(17, 24, 39, 0.08);
+  color: #111827;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.wardrobe-close-button:hover,
+.wardrobe-close-button:focus-visible {
+  background-color: rgba(17, 24, 39, 0.16);
+}
+
+.wardrobe-close-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wardrobe-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wardrobe-form-row label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.wardrobe-form-row input,
+.wardrobe-form-row select {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background-color: #f9fafb;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wardrobe-form-row input:focus,
+.wardrobe-form-row select:focus {
+  outline: none;
+  border-color: #1f2937;
+  box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.1);
+  background-color: #fff;
+}
+
+.wardrobe-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.wardrobe-checkbox input {
+  width: 18px;
+  height: 18px;
+}
+
+.wardrobe-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.wardrobe-submit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  cursor: pointer;
+  border: none;
+  background-color: #111827;
+  color: #ffffff;
+  box-shadow: 0 12px 20px rgba(17, 24, 39, 0.2);
+}
+
+.wardrobe-submit-button:hover,
+.wardrobe-submit-button:focus-visible {
+  background-color: #1f2937;
+}
+
+.wardrobe-submit-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.wardrobe-form-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 0.95rem;
+}
+
+.wardrobe-form-success {
+  margin: 0;
+  color: #047857;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 480px) {
+  .wardrobe-form-wrapper {
+    padding: 16px;
+  }
+}
