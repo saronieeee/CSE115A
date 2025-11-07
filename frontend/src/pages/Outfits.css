@@ -1,0 +1,64 @@
+.outfits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.outfit-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.outfit-card.skeleton {
+  height: 160px;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+}
+
+.outfit-thumbs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  min-height: 96px;
+}
+
+.outfit-thumb {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #f1f5f9;
+}
+
+.outfit-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb-badge {
+  position: absolute;
+  left: 6px; bottom: 6px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.outfit-meta .outfit-name {
+  font-weight: 600;
+}
+
+.outfit-meta .outfit-sub {
+  font-size: 12px;
+  color: #64748b;
+}

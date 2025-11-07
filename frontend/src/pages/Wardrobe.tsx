@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import "./Wardrobe.css";
 import WardrobeItem, { WardrobeItemProps } from "../components/WardrobeItem";
+import WardrobeAddItemForm from '../components/WardrobeAddItemForm';
 import ItemDetails from "../components/ItemDetails";
 import WardrobeFilters from "../components/WardrobeFilters";
 
@@ -53,6 +54,14 @@ const Wardrobe: React.FC = () => {
       window.removeEventListener('resize', handleResize);
     };
   }, [handleScroll, handleResize]);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  const handleOpenForm = () => {
+    setIsFormOpen(true);
+  };
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+  };
 
   // First file’s simple title filter (kept)
   const filteredByTitle = items.filter((it) =>
@@ -141,19 +150,48 @@ const Wardrobe: React.FC = () => {
   };
 
   return (
-    <div className="page page-wardrobe">
-      {/* filter controls (moved to component) */}
-      <WardrobeFilters
-        query={query}
-        onQueryChange={setQuery}
-        selectedCategories={selectedCategories}
-        onToggleCategory={toggleChip}
-        onClearAll={() => setSelectedCategories([])}
-        categories={CATEGORIES}
-        capitalize={capitalizeFirst}
-        isSticky={isSticky}
-        isMobileView={isMobileView}
-      />
+    <div className="page page-wardrobe">      
+      {/* second file header (kept) */}
+      <header className="wardrobe-header">
+        <h1 className="wardrobe-title">Dress To Impress</h1>
+        <button className="wardrobe-add-button" type="button" onClick={handleOpenForm}>
+          Add Item
+        </button>
+      </header>
+      {isFormOpen && <WardrobeAddItemForm onClose={handleCloseForm} />}
+      {/* second file controls (kept) */}
+      <section className="wardrobe-controls">
+        <div className="search-row">
+          <input
+            className="search-input"
+            type="text"
+            placeholder="Search clothing…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+
+        <div className="category-buttons">
+          <button
+            className={`category-chip ${selectedCategories.length === 0 ? "is-active" : ""}`}
+            onClick={() => toggleChip("All Items")}
+          >
+            All Items
+          </button>
+          {CATEGORIES.map((c) => {
+            const isOn = selectedCategories.includes(c.toLowerCase());
+            return (
+              <button
+                key={c}
+                className={`category-chip ${isOn ? "is-active" : ""}`}
+                onClick={() => toggleChip(c)}
+              >
+                {c}
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
       {/* first file main content (kept) */}
       <main className="wardrobe-content">
