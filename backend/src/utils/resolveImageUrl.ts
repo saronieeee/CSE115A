@@ -26,7 +26,6 @@ export async function resolvePublicImageUrlAndFixPath(
         const correctPath = `images/${folder}/${candidateFileName}`;
         const imageUrl = `${supabaseUrl}/storage/v1/object/public/${correctPath}`;
 
-        // ✅ update database if path is wrong
         if (imagePathFromDb !== correctPath) {
           await supabaseService
             .from("closet_items")
