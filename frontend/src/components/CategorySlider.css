@@ -1,0 +1,7 @@
+.category-slider-item {
+    transition: transform 0.2s;
+}
+
+.category-slider-item:hover {
+    transform: translateY(-2px) !important;
+}

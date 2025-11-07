@@ -1,9 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import "./Wardrobe.css";
-import WardrobeItem from "../components/WardrobeItem";
+import WardrobeItem, { WardrobeItemProps } from "../components/WardrobeItem";
 import ItemDetails from "../components/ItemDetails";
+import WardrobeFilters from "../components/WardrobeFilters";
 
-const CATEGORIES = ["Shirt", "Pants", "Jacket"]; // chip list (edit later if dynamic)
+// Define categories in lowercase to match the data
+const CATEGORIES = ["shirt", "pants", "jacket"]; // chip list (edit later if dynamic)
+
+// Helper function to capitalize first letter for display
+const capitalizeFirst = (str: string) => str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 
 // (Renamed to avoid collision with the WardrobeItem component)
 type WardrobeItemType = {
@@ -23,10 +28,31 @@ const sampleItems: WardrobeItemType[] = [
 ];
 
 const Wardrobe: React.FC = () => {
-  // ===== from first file =====
-  // Start empty to show the empty-state by default; developer can add sample items for preview.
   const [items, setItems] = useState<WardrobeItemType[]>([]);
   const [query, setQuery] = useState("");
+  const [isSticky, setIsSticky] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(false);
+
+  // Handle scroll events to determine sticky state
+  const handleScroll = useCallback(() => {
+    const offset = window.scrollY;
+    setIsSticky(offset > 100);
+  }, []);
+
+  // Handle resize events
+  const handleResize = useCallback(() => {
+    setIsMobileView(window.innerWidth < 1024);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Check initial size
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [handleScroll, handleResize]);
 
   // First file’s simple title filter (kept)
   const filteredByTitle = items.filter((it) =>
@@ -34,15 +60,19 @@ const Wardrobe: React.FC = () => {
   );
 
   // ===== from second file =====
-  const [selected, setSelected] = useState<Set<string>>(new Set()); // selected categories
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // selected categories as array
   const [loading, setLoading] = useState(true);
+
+  // Keep track of whether we've loaded items at least once
+  const [hasInitialItems, setHasInitialItems] = useState(false);
 
   useEffect(() => {
     setLoading(true);
 
     const params = new URLSearchParams();
-    const cats = Array.from(selected).join(",");
-    if (cats) params.set("categories", cats); // e.g. "shirt,pants"
+    if (selectedCategories.length > 0) {
+      params.set("categories", selectedCategories.join(",")); // e.g. "shirt,pants"
+    }
     if (query.trim()) params.set("q", query.trim());
     params.set("limit", "24");
     params.set("offset", "0");
@@ -54,90 +84,76 @@ const Wardrobe: React.FC = () => {
       })
       .then((d) => {
         // Map backend rows to the UI shape used by your components
+        // Normalize category to lowercase so it matches `CATEGORIES` and `selectedCategories`.
         const mapped: WardrobeItemType[] = (d.items || []).map((row: any) => ({
           id: row.id,
           title: row.category || "Item",
-          category: row.category,
+          category: (row.category || "").toLowerCase(),
           imageUrl: row.image_path, // your UI expects imageUrl
           favorite: !!row.favorite,
         }));
         setItems(mapped);
+        if (mapped.length > 0) {
+          setHasInitialItems(true);
+        }
       })
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  }, [selected, query]);
+  }, [selectedCategories, query]);
 
   // Second file’s combined (category + text) filter (kept)
+  // Filter items based on selected categories and search query
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const active = Array.from(selected); // lowercased categories
-    return items.filter((it: any) => {
-      const cat = (it.category || "").toLowerCase();
-      const matchesCat = active.length === 0 || active.includes(cat); // empty = All Items
-      const hay = `${it.category ?? ""} ${(it as any).color ?? ""} ${(it as any).occasion ?? ""}`.toLowerCase();
-      const matchesText = q === "" || hay.includes(q);
-      return matchesCat && matchesText;
-    });
-  }, [items, query, selected]);
+    return items.filter((item: WardrobeItemType) => {
+      // Category filter: show item if it matches any selected category
+      if (selectedCategories.length > 0) {
+        if (!item.category || !selectedCategories.includes(item.category)) {
+          return false;
+        }
+      }
 
-  // Toggle chips (kept)
+      // Search filter
+      if (query.trim()) {
+        const searchText = `${item.title} ${item.category}`.toLowerCase();
+        if (!searchText.includes(query.trim().toLowerCase())) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [items, query, selectedCategories]);
+
+  // Toggle category filters
   const toggleChip = (name: string) => {
     if (name === "All Items") {
-      setSelected(new Set()); // clear others
+      setSelectedCategories([]); // clear all filters
       return;
     }
-    const next = new Set(selected);
-    const key = name.toLowerCase();
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    setSelected(next);
+    const category = name.toLowerCase();
+    setSelectedCategories(prev => {
+      if (prev.includes(category)) {
+        return prev.filter(cat => cat !== category);
+      } else {
+        return [...prev, category];
+      }
+    });
   };
 
   return (
     <div className="page page-wardrobe">
-      {/* second file header (kept) */}
-      <header className="wardrobe-header">
-        <h1>Wardrobe</h1>
-      </header>
-
-      {/* second file controls (kept) */}
-      <section className="wardrobe-controls">
-        <div className="search-row">
-          <input
-            className="search-input"
-            type="text"
-            placeholder="Search clothing…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-
-        <div className="category-buttons">
-          <button
-            className={`category-chip ${selected.size === 0 ? "is-active" : ""}`}
-            onClick={() => toggleChip("All Items")}
-          >
-            All Items
-          </button>
-          {CATEGORIES.map((c) => {
-            const isOn = selected.has(c.toLowerCase());
-            return (
-              <button
-                key={c}
-                className={`category-chip ${isOn ? "is-active" : ""}`}
-                onClick={() => toggleChip(c)}
-              >
-                {c}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* first file header (kept) */}
-      <div className="wardrobe-header">
-        <h2>Hi User!</h2>
-      </div>
+      {/* filter controls (moved to component) */}
+      <WardrobeFilters
+        query={query}
+        onQueryChange={setQuery}
+        selectedCategories={selectedCategories}
+        onToggleCategory={toggleChip}
+        onClearAll={() => setSelectedCategories([])}
+        categories={CATEGORIES}
+        capitalize={capitalizeFirst}
+        isSticky={isSticky}
+        isMobileView={isMobileView}
+      />
 
       {/* first file main content (kept) */}
       <main className="wardrobe-content">
@@ -147,7 +163,7 @@ const Wardrobe: React.FC = () => {
               <div key={i} className="item-card placeholder" />
             ))}
           </div>
-        ) : items.length === 0 ? (
+        ) : !hasInitialItems && items.length === 0 ? (
           <div className="empty-card">
             <div className="empty-icon">🖼️</div>
             <h3>Your wardrobe is empty</h3>
@@ -155,9 +171,18 @@ const Wardrobe: React.FC = () => {
               Start building your digital wardrobe by adding your first item. Upload photos of your
               clothes and let our AI help organize them automatically.
             </p>
-            <button className="btn btn-primary" onClick={() => setItems(sampleItems)}>
+            <button className="btn btn-primary" onClick={() => {
+              setItems(sampleItems);
+              setHasInitialItems(true);
+            }}>
               Add Your First Item
             </button>
+          </div>
+        ) : items.length === 0 ? (
+          <div className="empty-card">
+            <div className="empty-icon">🔍</div>
+            <h3>No items found</h3>
+            <p>Try adjusting your filters or search terms to find what you're looking for.</p>
           </div>
         ) : (
           <div className="grid">
@@ -167,12 +192,10 @@ const Wardrobe: React.FC = () => {
                   id={it.id}
                   title={it.title}
                   description={it.category}
-                  tags={[it.category ?? ""]}
+                  tags={it.category ? [it.category] : []}
                   imageUrl={it.imageUrl}
                   favorite={!!it.favorite}
-                  onClick={() => {
-                    /* placeholder for viewing details */
-                  }}
+                  onClick={() => it.id}
                 />
                 <ItemDetails
                   id={it.id}
