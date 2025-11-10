@@ -18,34 +18,36 @@ router.get("/", async (req, res) => {
   if (outfitErr) return res.status(500).json({ error: outfitErr.message });
   if (!outfits?.length) return res.json({ outfits: [] });
 
-  const outfitIds = outfits.map(o => o.id);
+  const outfitIds = outfits.map((o) => o.id);
   const { data: joins, error: joinErr } = await supabaseService
     .from("outfit_combination_items")
     .select("id, combination_id, item_id, category")
     .in("combination_id", outfitIds);
   if (joinErr) return res.status(500).json({ error: joinErr.message });
 
-  const itemIds = Array.from(new Set((joins ?? []).map(j => j.item_id)));
+  const itemIds = Array.from(new Set((joins ?? []).map((j) => j.item_id)));
   const { data: items, error: itemsErr } = await supabaseService
     .from("closet_items")
-    .select("id, category, color, image_path, times_worn, user_id, occasion, favorite")
+    .select(
+      "id, category, color, image_path, times_worn, user_id, occasion, favorite"
+    )
     .in("id", itemIds);
   if (itemsErr) return res.status(500).json({ error: itemsErr.message });
 
-  const itemsById = new Map((items ?? []).map(i => [i.id, i]));
+  const itemsById = new Map((items ?? []).map((i) => [i.id, i]));
   const joinsByOutfit = new Map<string, any[]>();
-  (joins ?? []).forEach(j => {
+  (joins ?? []).forEach((j) => {
     const arr = joinsByOutfit.get(j.combination_id) ?? [];
     arr.push({
       category: j.category ?? itemsById.get(j.item_id)?.category ?? null,
       closet_item: itemsById.get(j.item_id) || null,
-      link_id: j.id
+      link_id: j.id,
     });
     joinsByOutfit.set(j.combination_id, arr);
   });
 
-  const order: Record<string, number> = { shirt: 0, pants: 1, jacket: 2 };
-  const withItems = outfits.map(o => ({
+  const order: Record<string, number> = { shirt: 0, pants: 1, outerwear: 2 };
+  const withItems = outfits.map((o) => ({
     id: o.id,
     name: o.name,
     last_worn: o.last_worn,
@@ -53,7 +55,7 @@ router.get("/", async (req, res) => {
     user_id: o.user_id,
     items: (joinsByOutfit.get(o.id) ?? []).sort(
       (a, b) => (order[a.category] ?? 99) - (order[b.category] ?? 99)
-    )
+    ),
   }));
 
   return res.json({ outfits: withItems });
@@ -85,7 +87,7 @@ router.get("/:id", async (req, res) => {
 
   if (joinErr) return res.status(500).json({ error: joinErr.message });
 
-  const itemIds = (joins ?? []).map(j => j.item_id).filter(Boolean);
+  const itemIds = (joins ?? []).map((j) => j.item_id).filter(Boolean);
   if (!itemIds.length) {
     return res.json({ ...outfit, items: [] });
   }
@@ -93,24 +95,29 @@ router.get("/:id", async (req, res) => {
   // 3) Fetch the actual closet items in one query
   const { data: items, error: itemsErr } = await supabaseService
     .from("closet_items")
-    .select("id, category, color, image_path, times_worn, user_id, occasion, favorite")
+    .select(
+      "id, category, color, image_path, times_worn, user_id, occasion, favorite"
+    )
     .in("id", itemIds);
 
   if (itemsErr) return res.status(500).json({ error: itemsErr.message });
 
   // Join the data together based on the category
-  // Currently the only categoies for clothing are shirt, pants, jacket
-  const byId = new Map((items ?? []).map(i => [i.id, i]));
+  // Currently the only categoies for clothing are shirt, pants, outerwear
+  const byId = new Map((items ?? []).map((i) => [i.id, i]));
   const merged = (joins ?? [])
-    .map(j => ({
+    .map((j) => ({
       category: j.category,
       closet_item: byId.get(j.item_id) || null,
-      link_id: j.id
+      link_id: j.id,
     }))
 
     // consistent order
     .sort((a, b) => {
-      const order = { shirt: 0, pants: 1, jacket: 2 } as Record<string, number>;
+      const order = { shirt: 0, pants: 1, outerwear: 2 } as Record<
+        string,
+        number
+      >;
       return (order[a.category] ?? 99) - (order[b.category] ?? 99);
     });
 
@@ -119,8 +126,104 @@ router.get("/:id", async (req, res) => {
     name: outfit.name,
     last_worn: outfit.last_worn,
     worn_count: outfit.worn_count,
-    items: merged
+    items: merged,
   });
+});
+
+const normalizeCategory = (raw?: string | null) => {
+  const c = (raw || "").trim().toLowerCase();
+  if (!c) return null;
+  if (c === "jacket") return "outerwear"; // keep app vocabulary consistent
+  if (["shirt", "pants", "outerwear"].includes(c)) return c;
+  return null;
+};
+
+type CreateOutfitBody = {
+  name?: string;
+  itemIds: string[]; // closet_items.id
+};
+
+router.post("/", async (req, res) => {
+  const { name, itemIds }: CreateOutfitBody = req.body || {};
+
+  const userId =
+    (req as any).user?.id ||
+    (req.query.user_id as string | undefined) ||
+    (req.headers["x-user-id"] as string | undefined);
+
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+  if (!Array.isArray(itemIds) || itemIds.length === 0) {
+    return res.status(400).json({ error: "itemIds must be a non-empty array" });
+  }
+
+  try {
+    // 1) Create outfit
+    const outfitName =
+      (typeof name === "string" && name.trim()) ||
+      `Outfit – ${new Date().toLocaleDateString()}`;
+
+    const { data: created, error: outfitErr } = await supabaseService
+      .from("outfits")
+      .insert([{ name: outfitName, user_id: userId }])
+      .select("id, name")
+      .single();
+
+    if (outfitErr || !created) {
+      return res
+        .status(500)
+        .json({ error: outfitErr?.message || "Failed to create outfit" });
+    }
+    const newOutfitId = created.id as string;
+
+    // 2) Fetch items to verify ownership and get categories
+    const { data: items, error: itemsErr } = await supabaseService
+      .from("closet_items")
+      .select("id, user_id, category")
+      .in("id", itemIds);
+
+    if (itemsErr) {
+      // cleanup created outfit
+      await supabaseService.from("outfits").delete().eq("id", newOutfitId);
+      return res.status(500).json({ error: itemsErr.message });
+    }
+
+    // Validate ownership + presence
+    const byId = new Map((items || []).map((i) => [i.id, i]));
+    const invalid: string[] = [];
+    itemIds.forEach((iid) => {
+      const row = byId.get(iid);
+      if (!row || row.user_id !== userId) invalid.push(iid);
+    });
+    if (invalid.length) {
+      await supabaseService.from("outfits").delete().eq("id", newOutfitId);
+      return res.status(403).json({
+        error: "Items not found or do not belong to the user",
+        invalidItemIds: invalid,
+      });
+    }
+
+    // 3) Build join rows using item.category from DB
+    const joinRows = itemIds.map((iid) => {
+      const dbCat = byId.get(iid)?.category ?? null;
+      const cat = normalizeCategory(dbCat); // may be null if unknown
+      return { combination_id: newOutfitId, item_id: iid, category: cat };
+    });
+
+    // 4) Insert joins
+    if (joinRows.length) {
+      const { error: joinErr } = await supabaseService
+        .from("outfit_combination_items")
+        .insert(joinRows);
+      if (joinErr) {
+        await supabaseService.from("outfits").delete().eq("id", newOutfitId);
+        return res.status(500).json({ error: joinErr.message });
+      }
+    }
+
+    return res.status(201).json({ id: newOutfitId, name: created.name });
+  } catch (e: any) {
+    return res.status(500).json({ error: e?.message || "Server error" });
+  }
 });
 
 export default router;

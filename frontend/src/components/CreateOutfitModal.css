@@ -1,0 +1,84 @@
+.co-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 10050;
+  backdrop-filter: blur(2px);
+}
+
+.co-dialog {
+  width: min(92vw, 520px);
+  background: #fff;
+  color: #0f172a;
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(2,6,23,0.28);
+  border: 1px solid #e5e7eb;
+  padding: 20px;
+}
+
+.co-title {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.co-form {
+  display: grid;
+  gap: 12px;
+}
+
+.co-label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.co-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.co-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+.co-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.co-btn {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.co-btn-ghost {
+  background: transparent;
+  border-color: #e5e7eb;
+  color: #111827;
+}
+
+.co-btn-ghost:hover { background: #f8fafc; }
+
+.co-btn-primary {
+  background: #111827;
+  color: #fff;
+}
+
+.co-btn-primary[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

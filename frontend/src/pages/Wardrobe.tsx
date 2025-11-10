@@ -3,7 +3,9 @@ import "./Wardrobe.css";
 import WardrobeItem from "../components/WardrobeItem";
 import WardrobeAddItemForm from "../components/WardrobeAddItemForm";
 import ItemDetails from "../components/ItemDetails";
-import WardrobeFilters from "../components/WardrobeFilters";
+// import WardrobeFilters from "../components/WardrobeFilters";
+import SelectionBar from "../components/SelectionBar";
+import CreateOutfitModal from "../components/CreateOutfitModal";
 
 // Define categories in lowercase to match the data
 const CATEGORIES = ["shirt", "pants", "outerwear"];
@@ -165,18 +167,83 @@ const Wardrobe: React.FC = () => {
     );
   };
 
+  // Track selected items by id
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
+    new Set()
+  );
+
+  const toggleSelect = (id: string) => {
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelectedItemIds(new Set());
+
+  // state
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  // open modal instead of direct POST
+  const handleCreateOutfit = () => {
+    if (selectedItemIds.size === 0) return;
+    setIsCreateOpen(true);
+  };
+
+  // actually post after modal submit
+  const submitCreateOutfit = async ({
+    name,
+    userId,
+  }: {
+    name: string;
+    userId: string;
+  }) => {
+    const ids = Array.from(selectedItemIds);
+    try {
+      const r = await fetch("/api/outfits", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId, // dev-only; replace with real auth later
+        },
+        credentials: "include",
+        body: JSON.stringify({ name, itemIds: ids }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        throw new Error(e.error || `HTTP ${r.status}`);
+      }
+      await r.json();
+      setIsCreateOpen(false);
+      clearSelection();
+      // navigate("/outfits"); // optional
+    } catch (e: any) {
+      alert(`Failed to save outfit: ${e.message}`);
+    }
+  };
+
   return (
     <div className={`page page-wardrobe ${isMobileView ? "is-mobile" : ""}`}>
       <header className={`wardrobe-header ${isSticky ? "is-sticky" : ""}`}>
         <h1 className="wardrobe-title">Dress To Impress</h1>
-        <button className="wardrobe-add-button" type="button" onClick={handleOpenForm}>
+        <button
+          className="wardrobe-add-button"
+          type="button"
+          onClick={handleOpenForm}
+        >
           Add Item
         </button>
       </header>
 
       {isFormOpen && <WardrobeAddItemForm onClose={handleCloseForm} />}
 
-      <section className="wardrobe-controls">
+      <section
+        className={`wardrobe-controls ${isSticky ? "is-sticky" : ""} ${
+          isMobileView ? "mobile" : ""
+        }`}
+      >
         <div className="search-row">
           <input
             className="search-input"
@@ -228,46 +295,98 @@ const Wardrobe: React.FC = () => {
           <div className="empty-card">
             <div className="empty-icon">🖼️</div>
             <h3>Your wardrobe is empty</h3>
-            <p>Start building your digital wardrobe by adding your first item.</p>
+            <p>
+              Start building your digital wardrobe by adding your first item.
+            </p>
           </div>
         ) : (filtered.length ? filtered : filteredByTitle).length === 0 ? (
           <div className="empty-card">
             <div className="empty-icon">🔍</div>
             <h3>No items found</h3>
-            <p>Try adjusting your filters or search terms to find what you're looking for.</p>
+            <p>
+              Try adjusting your filters or search terms to find what you're
+              looking for.
+            </p>
           </div>
         ) : (
           <div className="grid">
-            {(filtered.length ? filtered : filteredByTitle).map((it) => (
-              <div key={it.id} className="item-card">
-                <WardrobeItem
-                  id={it.id}
-                  title={it.title}
-                  description={it.category}
-                  tags={it.category ? [it.category] : []}
-                  imageUrl={it.imageUrl}
-                  favorite={!!it.favorite}
-                  onClick={() => {}}
-                />
-                <ItemDetails
-                  id={it.id}
-                  favorite={!!it.favorite}
-                  onToggleFavorite={(id) =>
-                    setItems((prev) =>
-                      prev.map((p) =>
-                        p.id === id ? { ...p, favorite: !p.favorite } : p
+            {(filtered.length ? filtered : filteredByTitle).map((it) => {
+              const isSelected = selectedItemIds.has(it.id);
+              return (
+                <div
+                  key={it.id}
+                  className={`item-card ${isSelected ? "is-selected" : ""}`}
+                >
+                  {/* Click layer to toggle selection */}
+                  <button
+                    type="button"
+                    className="item-card__select-overlay"
+                    onClick={() => toggleSelect(it.id)}
+                    aria-pressed={isSelected}
+                    aria-label={isSelected ? "Deselect item" : "Select item"}
+                  />
+
+                  {/* A simple check/marker when selected */}
+
+                  <WardrobeItem
+                    id={it.id}
+                    title={it.title}
+                    description={it.category}
+                    tags={it.category ? [it.category] : []}
+                    imageUrl={it.imageUrl}
+                    favorite={!!it.favorite}
+                    onClick={() => {}}
+                  />
+
+                  <ItemDetails
+                    id={it.id}
+                    favorite={!!it.favorite}
+                    onToggleFavorite={(id) =>
+                      setItems((prev) =>
+                        prev.map((p) =>
+                          p.id === id ? { ...p, favorite: !p.favorite } : p
+                        )
                       )
-                    )
-                  }
-                  onDelete={(id) =>
-                    setItems((prev) => prev.filter((p) => p.id !== id))
-                  }
-                />
-              </div>
-            ))}
+                    }
+                    onDelete={(id) => {
+                      setItems((prev) => prev.filter((p) => p.id !== id));
+                      // also remove from selection if it was selected
+                      setSelectedItemIds((prev) => {
+                        if (!prev.has(id)) return prev;
+                        const next = new Set(prev);
+                        next.delete(id);
+                        return next;
+                      });
+                    }}
+                  />
+                </div>
+              );
+            })}
           </div>
         )}
       </main>
+      {selectedItemIds.size > 0 && (
+        <>
+          <SelectionBar
+            count={selectedItemIds.size}
+            onClear={clearSelection}
+            onCreate={handleCreateOutfit}
+            disabled={false}
+          />
+        </>
+      )}
+      <CreateOutfitModal
+        open={isCreateOpen}
+        defaultName={`Outfit – ${new Date().toLocaleDateString()}`}
+        // optionally prefill userId from localStorage if you want:
+        defaultUserId={localStorage.getItem("DTI_DEV_USER_ID") || ""}
+        onCancel={() => setIsCreateOpen(false)}
+        onSubmit={(vals) => {
+          // cache the dev user id for convenience
+          localStorage.setItem("DTI_DEV_USER_ID", vals.userId);
+          submitCreateOutfit(vals);
+        }}
+      />
     </div>
   );
 };
