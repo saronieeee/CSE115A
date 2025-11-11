@@ -63,12 +63,23 @@
 
 .wardrobe-form-row input,
 .wardrobe-form-row select {
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid #d1d5db;
   background-color: #f9fafb;
   font-size: 0.95rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wardrobe-form-row input[type="file"] {
+  padding: 6px 0;
+}
+
+.wardrobe-form-row input[type="file"]::file-selector-button,
+.wardrobe-form-row input[type="file"]::-webkit-file-upload-button {
+  margin-left: 4px;
 }
 
 .wardrobe-form-row input:focus,
