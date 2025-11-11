@@ -12,6 +12,7 @@ type FormState = {
   occasion: string;
   color: string;
   imagePath: string;
+  imageUrl: string;
   favorite: boolean;
   timesWorn: string;
 };
@@ -22,13 +23,18 @@ const initialState: FormState = {
   occasion: '',
   color: '',
   imagePath: '',
+  imageUrl: '',
   favorite: false,
   timesWorn: '',
 };
 
 const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
+  // form state plus helpers to show upload status to the user
   const [formState, setFormState] = useState<FormState>(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -40,18 +46,83 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
     }));
   };
 
+  // avoid closing/resetting while a save or upload is running
   const handleClose = () => {
-    if (isSubmitting) return;
+    if (isSubmitting || isUploadingImage) return;
     setFormState(initialState);
     setError(null);
     setSuccess(null);
+    setImageUploadError(null);
+    setImagePreviewUrl(null);
     onClose();
   };
 
+  // upload the selected file to API and store the resulting storage path and public URL
+  const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImageUploadError(null);
+    setError(null);
+    setSuccess(null);
+    setIsUploadingImage(true);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/uploads/images', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        const serverError = typeof payload?.error === 'string' ? payload.error : 'Failed to upload image.';
+        throw new Error(serverError);
+      }
+
+      const newPath: string = payload?.image_path || payload?.path || '';
+      const newPublicUrl: string | null = payload?.publicUrl ?? null;
+
+      if (!newPath && !newPublicUrl) {
+        throw new Error('Upload response did not include an image path.');
+      }
+
+      setFormState((prev) => ({
+        ...prev,
+        imagePath: newPath || prev.imagePath,
+        imageUrl: newPublicUrl || prev.imageUrl,
+      }));
+      console.log('Image uploaded', {
+        path: newPath,
+        publicUrl: newPublicUrl,
+        size: payload?.size,
+        contentType: payload?.contentType,
+      });
+      setImagePreviewUrl(newPublicUrl);
+    } catch (uploadErr) {
+      const message =
+        uploadErr instanceof Error ? uploadErr.message : 'Something went wrong while uploading the image.';
+      setImageUploadError(message);
+    } finally {
+      setIsUploadingImage(false);
+      // allow uploading the same file again later
+      event.target.value = '';
+    }
+  };
+
+  // synchronous validation first, then persist via Supabase
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setSuccess(null);
+
+    if (isUploadingImage) {
+      setError('Please wait for the image upload to finish.');
+      return;
+    }
 
     const trimmedCategory = formState.category.trim();
     const trimmedUserId = formState.userId.trim();
@@ -76,18 +147,26 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
       occasion: formState.occasion.trim() || null,
       color: formState.color.trim() || null,
       image_path: formState.imagePath.trim() || null,
+      image_url: formState.imageUrl.trim() || null,
       favorite: formState.favorite,
       times_worn: timesWornValue,
     };
 
     setIsSubmitting(true);
     try {
+      // insert directly through Supabase TODO: funnel through express api
       const { error: insertError } = await supabase.from('closet_items').insert([insertPayload]);
       if (insertError) {
         throw new Error(insertError.message);
       }
       setSuccess('Item added to your wardrobe!');
       setFormState(initialState);
+      console.log('Wardrobe item saved', {
+        imagePath: insertPayload.image_path,
+        imageUrl: insertPayload.image_url,
+      });
+      setImagePreviewUrl(null);
+      setImageUploadError(null);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Something went wrong while adding the item.';
@@ -165,14 +244,23 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
         </div>
 
         <div className="wardrobe-form-row">
-          <label htmlFor="imagePath">Image path</label>
+          <label htmlFor="imageUpload">Image upload</label>
           <input
-            id="imagePath"
-            name="imagePath"
-            value={formState.imagePath}
-            onChange={handleChange}
-            placeholder="storage path"
+            id="imageUpload"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            onChange={handleImageUpload}
+            disabled={isSubmitting || isUploadingImage}
           />
+          {isUploadingImage && <p className="wardrobe-form-hint">Uploading image…</p>}
+          {imageUploadError && <p className="wardrobe-form-error">{imageUploadError}</p>}
+          {imagePreviewUrl && (
+            <img
+              src={imagePreviewUrl}
+              alt="Uploaded preview"
+              className="wardrobe-image-preview"
+            />
+          )}
         </div>
 
         <div className="wardrobe-form-row">
@@ -203,7 +291,7 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
         {success && <p className="wardrobe-form-success">{success}</p>}
 
         <div className="wardrobe-form-actions">
-          <button className="wardrobe-submit-button" type="submit" disabled={isSubmitting}>
+          <button className="wardrobe-submit-button" type="submit" disabled={isSubmitting || isUploadingImage}>
             {isSubmitting ? 'Saving...' : 'Save item'}
           </button>
         </div>

@@ -3,7 +3,6 @@ import "./Wardrobe.css";
 import WardrobeItem from "../components/WardrobeItem";
 import WardrobeAddItemForm from "../components/WardrobeAddItemForm";
 import ItemDetails from "../components/ItemDetails";
-import WardrobeFilters from "../components/WardrobeFilters";
 
 // Define categories in lowercase to match the data
 const CATEGORIES = ["shirt", "pants", "outerwear"];

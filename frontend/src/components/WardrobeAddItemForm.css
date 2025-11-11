@@ -138,6 +138,20 @@
   font-size: 0.95rem;
 }
 
+.wardrobe-form-hint {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.85rem;
+}
+
+.wardrobe-image-preview {
+  margin-top: 4px;
+  max-width: 200px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background-color: #f9fafb;
+}
+
 @media (max-width: 480px) {
   .wardrobe-form-wrapper {
     padding: 16px;
