@@ -1,4 +1,4 @@
-import React, { ChangeEvent, FormEvent, useState } from 'react';
+import React, { ChangeEvent, FormEvent, useRef, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import './WardrobeAddItemForm.css';
 
@@ -37,6 +37,7 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
   const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = event.target;
@@ -59,7 +60,8 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
 
   // upload the selected file to API and store the resulting storage path and public URL
   const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const fileInput = event.target;
+    const file = fileInput.files?.[0];
     if (!file) return;
 
     setImageUploadError(null);
@@ -109,7 +111,26 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
     } finally {
       setIsUploadingImage(false);
       // allow uploading the same file again later
-      event.target.value = '';
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      fileInput.value = '';
+    }
+  };
+
+  // allow users to cancel an upload without reloading form
+  const handleRemoveImage = () => {
+    setFormState((prev) => ({
+      ...prev,
+      imagePath: '',
+      imageUrl: '',
+    }));
+    setImagePreviewUrl(null);
+    setImageUploadError(null);
+    setError(null);
+    setSuccess(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -251,6 +272,7 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
             accept="image/png,image/jpeg,image/webp,image/gif"
             onChange={handleImageUpload}
             disabled={isSubmitting || isUploadingImage}
+            ref={fileInputRef}
           />
           {isUploadingImage && <p className="wardrobe-form-hint">Uploading image…</p>}
           {imageUploadError && <p className="wardrobe-form-error">{imageUploadError}</p>}
@@ -260,6 +282,16 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
               alt="Uploaded preview"
               className="wardrobe-image-preview"
             />
+          )}
+          {(formState.imagePath || formState.imageUrl || imagePreviewUrl) && (
+            <button
+              type="button"
+              className="wardrobe-remove-image-button"
+              onClick={handleRemoveImage}
+              disabled={isSubmitting || isUploadingImage}
+            >
+              Remove image
+            </button>
           )}
         </div>
 
