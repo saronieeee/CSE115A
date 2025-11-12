@@ -342,13 +342,14 @@ const Wardrobe: React.FC = () => {
                     tags={it.category ? [it.category] : []}
                     imageUrl={it.imageUrl}
                     favorite={!!it.favorite}
-                    onClick={() => {}}
+                    onClick={() => handleViewDetails(it.id)}
                   />
                   <ItemDetails
                     id={it.id}
                     favorite={!!it.favorite}
                     onToggleFavorite={toggleFavorite}
                     onDelete={deleteItem}
+                    onViewDetails={() => handleViewDetails(it.id)}
                   />
                 </div>
               );
