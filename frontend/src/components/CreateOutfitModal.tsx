@@ -66,7 +66,7 @@ const CreateOutfitModal: React.FC<Props> = ({
               className="co-input"
               type="text"
               value={name}
-              placeholder="e.g., Movie Night"
+              placeholder=""
               onChange={(e) => setName(e.target.value)}
               required
             />
