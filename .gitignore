@@ -4,3 +4,9 @@ dist/
 frontend/node_modules/
 backend/node_modules/
 node_modules/
+
+# Backend build output
+/backend/dist/
+
+# Ensure package-lock under backend node_modules isn't tracked
+/backend/node_modules/.package-lock.json
