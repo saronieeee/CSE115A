@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { supabaseService } from "../lib/supabase";
 
+
 const router = Router();
 
 // get a single clothing item by id

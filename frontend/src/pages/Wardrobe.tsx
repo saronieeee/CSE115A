@@ -1,17 +1,17 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import "./Wardrobe.css";
-import WardrobeItem, { WardrobeItemProps } from "../components/WardrobeItem";
-import WardrobeAddItemForm from '../components/WardrobeAddItemForm';
+import WardrobeItem from "../components/WardrobeItem";
+import WardrobeAddItemForm from "../components/WardrobeAddItemForm";
 import ItemDetails from "../components/ItemDetails";
 import ItemDetailsModal from "../components/ItemDetailsModal";
 
 // Define categories in lowercase to match the data
-const CATEGORIES = ["shirt", "pants", "jacket"]; // chip list (edit later if dynamic)
+const CATEGORIES = ["shirt", "pants", "outerwear"];
 
-// Helper function to capitalize first letter for display
-const capitalizeFirst = (str: string) => str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+// Helper function to capitalize first letter for display (if needed elsewhere)
+const capitalizeFirst = (str: string) =>
+  str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 
-// (Renamed to avoid collision with the WardrobeItem component)
 type WardrobeItemType = {
   id: string;
   title: string;
@@ -19,20 +19,18 @@ type WardrobeItemType = {
   imageUrl?: string;
   favorite?: boolean;
   tags?: string[];
-  color?: string;
+  color?: string | null;
+  occasion?: string | null;
 };
-
-const sampleItems: WardrobeItemType[] = [
-  { id: "1", title: "White Tee", category: "shirt", imageUrl: "https://img.sonofatailor.com/images/customizer/product/extra-heavy-cotton/ss/Black.jpg", favorite: false },
-  { id: "2", title: "Blue Jeans", category: "pants", imageUrl: "https://m.media-amazon.com/images/I/715K4AhGLZS._AC_UY1000_.jpg", favorite: true },
-  { id: "3", title: "Black Dress", category: "dress", imageUrl: "https://static.nike.com/a/images/t_PDP_1280_v1/f_auto,q_auto:eco/99486859-0ff3-46b4-949b-2d16af2ad421/custom-nike-dunk-high-by-you-shoes.png", favorite: false },
-  { id: "4", title: "Red Sneakers", category: "shoes", imageUrl: "https://vader-prod.s3.amazonaws.com/1651851897-best-babydoll-dresses-matteau-dress-1651851878.png", favorite: false },
-  { id: "5", title: "Leather Jacket", category: "jacket", imageUrl: "https://img.sonofatailor.com/images/customizer/product/extra-heavy-cotton/ss/Black.jpg", favorite: true },
-];
 
 const Wardrobe: React.FC = () => {
   const [items, setItems] = useState<WardrobeItemType[]>([]);
   const [query, setQuery] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  // UI niceties from the other branch
   const [isSticky, setIsSticky] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [selectedItem, setSelectedItem] = useState<WardrobeItemType | null>(null);
@@ -66,133 +64,150 @@ const Wardrobe: React.FC = () => {
     );
     setSelectedItem(null);
   };
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
-  // Handle scroll events to determine sticky state
+  const handleOpenForm = () => setIsFormOpen(true);
+  const handleCloseForm = () => setIsFormOpen(false);
+
+  // Sticky header & responsive checks
   const handleScroll = useCallback(() => {
     const offset = window.scrollY;
     setIsSticky(offset > 100);
   }, []);
 
-  // Handle resize events
   const handleResize = useCallback(() => {
     setIsMobileView(window.innerWidth < 1024);
   }, []);
 
   useEffect(() => {
-    window.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', handleResize);
-    handleResize(); // Check initial size
+    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("resize", handleResize);
+    handleResize(); // initial
     return () => {
-      window.removeEventListener('scroll', handleScroll);
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("resize", handleResize);
     };
   }, [handleScroll, handleResize]);
-  const [isFormOpen, setIsFormOpen] = useState(false);
 
-  const handleOpenForm = () => {
-    setIsFormOpen(true);
-  };
-  const handleCloseForm = () => {
-    setIsFormOpen(false);
-  };
-
-  // First file’s simple title filter (kept)
-  const filteredByTitle = items.filter((it) =>
-    (it.title || "").toLowerCase().includes(query.toLowerCase())
-  );
-
-  // ===== from second file =====
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]); // selected categories as array
-  const [loading, setLoading] = useState(true);
-
-  // Keep track of whether we've loaded items at least once
-  const [hasInitialItems, setHasInitialItems] = useState(false);
-
+  // Fetch items (preserve robust error handling + query/category params)
   useEffect(() => {
-    setLoading(true);
+    const ac = new AbortController();
 
-    const params = new URLSearchParams();
-    if (selectedCategories.length > 0) {
-      params.set("categories", selectedCategories.join(",")); // e.g. "shirt,pants"
-    }
-    if (query.trim()) params.set("q", query.trim());
-    params.set("limit", "24");
-    params.set("offset", "0");
+    (async () => {
+      try {
+        setLoading(true);
+        setErr(null);
 
-    fetch(`/api/clothing-items?${params.toString()}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("Network error");
-        return r.json();
-      })
-      .then((d) => {
-        // Map backend rows to the UI shape used by your components
-        // Normalize category to lowercase so it matches `CATEGORIES` and `selectedCategories`.
-        const mapped: WardrobeItemType[] = (d.items || []).map((row: any) => ({
-          id: row.id,
-          title: row.category || "Item",
-          category: (row.category || "").toLowerCase(),
-          imageUrl: row.image_path, // your UI expects imageUrl
-          favorite: !!row.favorite,
-        }));
-        setItems(mapped);
-        if (mapped.length > 0) {
-          setHasInitialItems(true);
+        const params = new URLSearchParams();
+        if (selectedCategories.length > 0) {
+          params.set("categories", selectedCategories.join(","));
         }
-      })
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
+        if (query.trim()) params.set("q", query.trim());
+        params.set("limit", "24");
+        params.set("offset", "0");
+
+        // Try the public API first (credentials include), then fallback
+        const apiBase = "http://localhost:4000";
+        const primaryUrl = `${apiBase}/api/public/closet-items?${params.toString()}`;
+        const fallbackUrl = `/api/clothing-items?${params.toString()}`;
+
+        // Helper to map rows to UI model (prefers image_url then image_path)
+        const mapRows = (rows: any[]): WardrobeItemType[] =>
+          rows.map((row: any) => ({
+            id: row.id,
+            title: row.category || "Item",
+            category: (row.category || "").toLowerCase() || undefined,
+            imageUrl: row.image_url || row.image_path || undefined,
+            favorite: !!row.favorite,
+            color: row.color ?? null,
+            occasion: row.occasion ?? null,
+          }));
+
+        // attempt #1
+        let res = await fetch(primaryUrl, {
+          credentials: "include",
+          signal: ac.signal,
+        });
+
+        // Fallback attempt if primary fails (non-OK)
+        if (!res.ok) {
+          res = await fetch(fallbackUrl, { signal: ac.signal });
+        }
+
+        if (!res.ok) throw new Error(`Network error ${res.status}`);
+
+        const data = await res.json();
+        const rows: any[] = Array.isArray(data?.items) ? data.items : [];
+        setItems(mapRows(rows));
+      } catch (e: any) {
+        if (e?.name !== "AbortError") {
+          console.error(e);
+          setItems([]);
+          setErr("Failed to load your wardrobe. Please try again.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    return () => ac.abort();
   }, [selectedCategories, query]);
 
-  // Second file’s combined (category + text) filter (kept)
-  // Filter items based on selected categories and search query
+  // Quick title-only fallback filter (kept from original)
+  const filteredByTitle = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((it) => (it.title || "").toLowerCase().includes(q));
+  }, [items, query]);
+
+  // Combined filter: categories + richer text search (category/color/occasion/title)
   const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+
     return items.filter((item: WardrobeItemType) => {
-      // Category filter: show item if it matches any selected category
+      // Category filter
       if (selectedCategories.length > 0) {
-        if (!item.category || !selectedCategories.includes(item.category)) {
-          return false;
-        }
+        const cat = (item.category || "").toLowerCase();
+        if (!cat || !selectedCategories.includes(cat)) return false;
       }
 
-      // Search filter
-      if (query.trim()) {
-        const searchText = `${item.title} ${item.category}`.toLowerCase();
-        if (!searchText.includes(query.trim().toLowerCase())) {
-          return false;
-        }
+      // Text filter (richer fields)
+      if (q) {
+        const hay = `${item.title ?? ""} ${item.category ?? ""} ${
+          item.color ?? ""
+        } ${item.occasion ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
       }
 
       return true;
     });
   }, [items, query, selectedCategories]);
 
-  // Toggle category filters
+  // Toggle category chips
   const toggleChip = (name: string) => {
     if (name === "All Items") {
-      setSelectedCategories([]); // clear all filters
+      setSelectedCategories([]);
       return;
     }
     const category = name.toLowerCase();
-    setSelectedCategories(prev => {
-      if (prev.includes(category)) {
-        return prev.filter(cat => cat !== category);
-      } else {
-        return [...prev, category];
-      }
-    });
+    setSelectedCategories((prev) =>
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
+    );
   };
 
   return (
-    <div className="page page-wardrobe">      
-      {/* second file header (kept) */}
-      <header className="wardrobe-header">
+    <div className={`page page-wardrobe ${isMobileView ? "is-mobile" : ""}`}>
+      <header className={`wardrobe-header ${isSticky ? "is-sticky" : ""}`}>
         <h1 className="wardrobe-title">Dress To Impress</h1>
         <button className="wardrobe-add-button" type="button" onClick={handleOpenForm}>
           Add Item
         </button>
       </header>
+
       {isFormOpen && <WardrobeAddItemForm onClose={handleCloseForm} />}
-      {/* second file controls (kept) */}
+
       <section className="wardrobe-controls">
         <div className="search-row">
           <input
@@ -206,7 +221,9 @@ const Wardrobe: React.FC = () => {
 
         <div className="category-buttons">
           <button
-            className={`category-chip ${selectedCategories.length === 0 ? "is-active" : ""}`}
+            className={`category-chip ${
+              selectedCategories.length === 0 ? "is-active" : ""
+            }`}
             onClick={() => toggleChip("All Items")}
           >
             All Items
@@ -226,7 +243,6 @@ const Wardrobe: React.FC = () => {
         </div>
       </section>
 
-      {/* first file main content (kept) */}
       <main className="wardrobe-content">
         {loading ? (
           <div className="items-grid">
@@ -234,22 +250,19 @@ const Wardrobe: React.FC = () => {
               <div key={i} className="item-card placeholder" />
             ))}
           </div>
-        ) : !hasInitialItems && items.length === 0 ? (
+        ) : err ? (
+          <div className="empty-card">
+            <div className="empty-icon">⚠️</div>
+            <h3>Couldn’t load your wardrobe</h3>
+            <p>{err}</p>
+          </div>
+        ) : items.length === 0 ? (
           <div className="empty-card">
             <div className="empty-icon">🖼️</div>
             <h3>Your wardrobe is empty</h3>
-            <p>
-              Start building your digital wardrobe by adding your first item. Upload photos of your
-              clothes and let our AI help organize them automatically.
-            </p>
-            <button className="btn btn-primary" onClick={() => {
-              setItems(sampleItems);
-              setHasInitialItems(true);
-            }}>
-              Add Your First Item
-            </button>
+            <p>Start building your digital wardrobe by adding your first item.</p>
           </div>
-        ) : items.length === 0 ? (
+        ) : (filtered.length ? filtered : filteredByTitle).length === 0 ? (
           <div className="empty-card">
             <div className="empty-icon">🔍</div>
             <h3>No items found</h3>
@@ -266,14 +279,16 @@ const Wardrobe: React.FC = () => {
                   tags={it.category ? [it.category] : []}
                   imageUrl={it.imageUrl}
                   favorite={!!it.favorite}
-                  onClick={() => it.id}
+                  onClick={() => {}}
                 />
                 <ItemDetails
                   id={it.id}
                   favorite={!!it.favorite}
                   onToggleFavorite={(id) =>
                     setItems((prev) =>
-                      prev.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p))
+                      prev.map((p) =>
+                        p.id === id ? { ...p, favorite: !p.favorite } : p
+                      )
                     )
                   }
                   onDelete={(id) => setItems((prev) => prev.filter((p) => p.id !== id))}
