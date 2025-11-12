@@ -7,6 +7,7 @@ import morgan from "morgan";
 import publicRouter from "./routes/clothing_items_test";
 import outfitRouter from "./routes/outfits";
 import closetRouter from "./routes/closet_items";
+import uploadRouter from "./routes/uploads";
 
 const app = express();
 app.use(morgan("dev"));
@@ -34,6 +35,7 @@ app.use((req, res, next) => {
 
 app.use("/api/public", publicRouter);
 app.use("/api/outfits", outfitRouter);
+app.use("/api/uploads", uploadRouter);
 app.use("/api", closetRouter);    
 
 const port = Number(process.env.PORT) || 4000;
