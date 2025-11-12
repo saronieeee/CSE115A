@@ -405,13 +405,14 @@ const Wardrobe: React.FC = () => {
                         });
                       }
                     }}
-                  onClick={() => {}}
+                    onClick={() => handleViewDetails(it.id)}
                   />
                   <ItemDetails
                     id={it.id}
                     favorite={!!it.favorite}
                     onToggleFavorite={toggleFavorite}
                     onDelete={deleteItem}
+                    onViewDetails={() => handleViewDetails(it.id)}
                   />
                 </div>
               );
