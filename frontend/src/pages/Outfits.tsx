@@ -86,8 +86,8 @@ const Outfits: React.FC = () => {
 
       <section className="outfits-grid">
         {outfits.map((o) => {
-          // build up to 3 thumbnails (prefer shirt, pants, jacket order)
-          const order = { shirt: 0, pants: 1, jacket: 2 } as Record<string, number>;
+          // build up to 3 thumbnails (prefer shirt, pants, outerwear order)
+          const order = { shirt: 0, pants: 1, outerwear: 2 } as Record<string, number>;
           const imgs = (o.items || [])
             .filter((x) => x.closet_item?.image_path)
             .sort((a, b) => (order[(a.category || a.closet_item?.category || "")] ?? 99) - (order[(b.category || b.closet_item?.category || "")] ?? 99))

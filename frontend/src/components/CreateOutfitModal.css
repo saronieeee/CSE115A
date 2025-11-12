@@ -1,0 +1,121 @@
+/* Backdrop (unchanged look) */
+.co-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 10050;
+  backdrop-filter: blur(2px);
+}
+
+/* Dialog: same card style, but responsive width & padding */
+.co-dialog {
+  /* width shrinks with viewport, but never below 280px nor above 520px */
+  width: clamp(280px, 92vw, 520px);
+
+  /* cap height so content can scroll inside on small screens */
+  max-height: min(90vh, 640px);
+
+  background: #fff;
+  color: #0f172a;
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(2,6,23,0.28);
+  border: 1px solid #e5e7eb;
+
+  /* padding scales down on small screens */
+  padding: clamp(14px, 2.2vw, 20px);
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Title scales with screen size */
+.co-title {
+  margin: 0 0 10px;
+  font-weight: 700;
+  font-size: clamp(1rem, 2.2vw, 1.25rem);
+}
+
+/* Form becomes the scroll area if needed */
+.co-form {
+  display: grid;
+  gap: clamp(8px, 1.6vw, 12px);
+  overflow: auto;
+  padding-right: 2px; /* avoid scrollbar overlay on macOS */
+}
+
+/* Labels & inputs keep the same vibe, just scale subtly */
+.co-label {
+  display: grid;
+  gap: 6px;
+  font-size: clamp(0.9rem, 1.8vw, 0.95rem);
+}
+
+.co-input {
+  width: 90%;
+  padding: clamp(8px, 1.6vw, 10px) clamp(10px, 1.8vw, 12px);
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: clamp(0.9rem, 1.8vw, 0.95rem);
+  outline: none;
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.co-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+/* Actions stay on one line when there’s space; wrap when narrow */
+.co-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+  position: sticky;   /* keep buttons visible while scrolling */
+  bottom: 0;
+  padding-top: 8px;
+  background: linear-gradient(to top, #fff 60%, rgba(255,255,255,0));
+  flex-wrap: wrap;    /* allow wrapping on very small widths */
+}
+
+/* Buttons scale a touch and don’t overflow */
+.co-btn {
+  padding: clamp(8px, 1.6vw, 10px) clamp(12px, 2vw, 14px);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: clamp(0.9rem, 1.8vw, 0.95rem);
+  min-width: 120px;   /* prevents ultra-narrow buttons, but still wrap-capable */
+}
+
+.co-btn-ghost {
+  background: transparent;
+  border-color: #e5e7eb;
+  color: #111827;
+}
+.co-btn-ghost:hover { background: #f8fafc; }
+
+.co-btn-primary {
+  background: #111827;
+  color: #fff;
+}
+.co-btn-primary[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Tiny screens: allow stack for buttons & center the title */
+@media (max-width: 360px) {
+  .co-title { text-align: center; }
+  .co-actions {
+    justify-content: stretch;
+  }
+  .co-btn {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+}
