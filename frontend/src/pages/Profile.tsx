@@ -66,7 +66,8 @@ const Profile: React.FC = () => {
           <HistoryItem key={h.name} name={h.name} subtitle={h.subtitle} count={h.count} icon={h.icon} />
         ))}
       </section>
-
+      
+      <h3 className="section-title">Forgotten Finds</h3>
       <ForgottenFinds items={data.forgotten ?? []} />
 
       <div className="notice">You have 8 items that haven't been worn in over 2 months</div>

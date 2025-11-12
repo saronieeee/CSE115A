@@ -15,7 +15,6 @@ type ForgottenFindsProps = {
 const ForgottenFinds: React.FC<ForgottenFindsProps> = ({ items }) => {
   return (
     <div className="forgotten-card">
-      <h4 className="forgotten-title">Forgotten Finds</h4>
 
       <div className="forgotten-list">
         {items.map((it) => (

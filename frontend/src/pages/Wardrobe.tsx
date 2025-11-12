@@ -3,7 +3,7 @@ import "./Wardrobe.css";
 import WardrobeItem, { WardrobeItemProps } from "../components/WardrobeItem";
 import WardrobeAddItemForm from '../components/WardrobeAddItemForm';
 import ItemDetails from "../components/ItemDetails";
-import WardrobeFilters from "../components/WardrobeFilters";
+import ItemDetailsModal from "../components/ItemDetailsModal";
 
 // Define categories in lowercase to match the data
 const CATEGORIES = ["shirt", "pants", "jacket"]; // chip list (edit later if dynamic)
@@ -18,6 +18,8 @@ type WardrobeItemType = {
   category?: string;
   imageUrl?: string;
   favorite?: boolean;
+  tags?: string[];
+  color?: string;
 };
 
 const sampleItems: WardrobeItemType[] = [
@@ -33,6 +35,37 @@ const Wardrobe: React.FC = () => {
   const [query, setQuery] = useState("");
   const [isSticky, setIsSticky] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<WardrobeItemType | null>(null);
+
+  // Handler for opening the details modal
+  const handleViewDetails = (id: string) => {
+    const item = items.find(item => item.id === id);
+    if (item) {
+      setSelectedItem(item);
+    }
+  };
+
+  // Handler for closing the details modal
+  const handleCloseDetails = () => {
+    setSelectedItem(null);
+  };
+
+  // Handler for saving item details
+  const handleSaveDetails = (id: string, updatedDetails: {
+    title: string;
+    category: string;
+    tags: string[];
+    color: string;
+  }) => {
+    setItems(prevItems =>
+      prevItems.map(item =>
+        item.id === id
+          ? { ...item, ...updatedDetails }
+          : item
+      )
+    );
+    setSelectedItem(null);
+  };
 
   // Handle scroll events to determine sticky state
   const handleScroll = useCallback(() => {
@@ -244,12 +277,27 @@ const Wardrobe: React.FC = () => {
                     )
                   }
                   onDelete={(id) => setItems((prev) => prev.filter((p) => p.id !== id))}
+                  onViewDetails={handleViewDetails}
                 />
               </div>
             ))}
           </div>
         )}
       </main>
+
+      {/* Item Details Modal */}
+      {selectedItem && (
+        <ItemDetailsModal
+          id={selectedItem.id}
+          imageUrl={selectedItem.imageUrl || ''}
+          title={selectedItem.title}
+          category={selectedItem.category}
+          tags={selectedItem.tags || []}
+          color={selectedItem.color || ''}
+          onClose={handleCloseDetails}
+          onSave={(updatedDetails) => handleSaveDetails(selectedItem.id, updatedDetails)}
+        />
+      )}
     </div>
   );
 };
