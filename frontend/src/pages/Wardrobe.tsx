@@ -4,6 +4,7 @@ import WardrobeItem from "../components/WardrobeItem";
 import WardrobeAddItemForm from "../components/WardrobeAddItemForm";
 import ItemDetails from "../components/ItemDetails";
 import ItemDetailsModal from "../components/ItemDetailsModal";
+import SelectionBar from "../components/SelectionBar";
 
 const CATEGORIES = ["shirt", "pants", "outerwear"];
 
@@ -27,6 +28,7 @@ const Wardrobe: React.FC = () => {
   const [isSticky, setIsSticky] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [selectedItem, setSelectedItem] = useState<WardrobeItemType | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Handler for opening the details modal
   const handleViewDetails = (id: string) => {
@@ -61,6 +63,43 @@ const Wardrobe: React.FC = () => {
 
   const handleOpenForm = () => setIsFormOpen(true);
   const handleCloseForm = () => setIsFormOpen(false);
+
+  // Selection helpers for toolbar
+  const handleSelectToggle = (id: string, sel: boolean) => {
+    setSelectedIds((prev) => (sel ? [...prev, id] : prev.filter((p) => p !== id)));
+  };
+
+  const handleClearSelection = () => setSelectedIds([]);
+
+  const handleVirtualTryOn = () => {
+    console.log('Virtual Try-On for:', selectedIds);
+    // TODO: route to AI / try-on with selected items
+  };
+
+  const handleCreateOutfit = () => {
+    console.log('Create outfit from:', selectedIds);
+    // TODO: open create outfit modal or route
+  };
+
+  const handleAddSelectionToFavorites = async () => {
+    console.log('Add to favorites:', selectedIds);
+    // naive optimistic update
+    setItems((prev) => prev.map((it) => (selectedIds.includes(it.id) ? { ...it, favorite: true } : it)));
+    // TODO: persist to backend in a batch
+  };
+
+  const handleDeleteSelection = async () => {
+    const snapshot = items;
+    setItems((prev) => prev.filter((it) => !selectedIds.includes(it.id)));
+    setSelectedIds([]);
+    try {
+      await Promise.all(selectedIds.map((id) => fetch(`/api/clothing-items/${id}`, { method: 'DELETE' })));
+    } catch (e) {
+      console.error('Batch delete failed', e);
+      setItems(snapshot);
+      setErr('Failed to delete selection.');
+    }
+  };
 
   /** Sticky header + responsive handling */
   const handleScroll = useCallback(() => {
@@ -322,6 +361,8 @@ const Wardrobe: React.FC = () => {
                   tags={it.category ? [it.category] : []}
                   imageUrl={it.imageUrl}
                   favorite={!!it.favorite}
+                  selected={selectedIds.includes(it.id)}
+                  onSelect={(id, sel) => handleSelectToggle(id, sel)}
                   onClick={() => {}}
                 />
                 <ItemDetails
@@ -348,6 +389,18 @@ const Wardrobe: React.FC = () => {
           color={selectedItem.color || ''}
           onClose={handleCloseDetails}
           onSave={(updatedDetails) => handleSaveDetails(selectedItem.id, updatedDetails)}
+        />
+      )}
+
+      {/* Selection toolbar (appears above bottom nav) */}
+      {selectedIds.length > 0 && (
+        <SelectionBar
+          count={selectedIds.length}
+          onClear={handleClearSelection}
+          onVirtualTryOn={handleVirtualTryOn}
+          onCreateOutfit={handleCreateOutfit}
+          onAddFavorites={handleAddSelectionToFavorites}
+          onDelete={handleDeleteSelection}
         />
       )}
     </div>
