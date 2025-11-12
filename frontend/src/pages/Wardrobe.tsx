@@ -329,6 +329,7 @@ const Wardrobe: React.FC = () => {
                   favorite={!!it.favorite}
                   onToggleFavorite={toggleFavorite}
                   onDelete={deleteItem}
+                  onViewDetails={handleViewDetails}
                 />
               </div>
             ))}
