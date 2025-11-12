@@ -40,13 +40,44 @@ const Wardrobe: React.FC = () => {
     if (item) setSelectedItem(item);
   };
   const handleCloseDetails = () => setSelectedItem(null);
-  const handleSaveDetails = (
+  const handleSaveDetails = async (
     id: string,
     updatedDetails: { title: string; category: string; tags: string[]; color: string }
   ) => {
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...updatedDetails } : it)));
-    setSelectedItem(null);
+    try {
+      // 1. Send update to backend
+      const res = await fetch(`/api/clothing-items/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedDetails),
+      });
+
+      if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
+
+      const { item } = await res.json();
+
+      // 2. Update React state with the returned (saved) item
+      setItems((prev) =>
+        prev.map((it) => (it.id === id ? {
+          ...it,
+          title: item.category || it.title,
+          category: item.category?.toLowerCase() || it.category,
+          tags: updatedDetails.tags,
+          color: item.color,
+          imageUrl: item.image_url || item.image_path || it.imageUrl,
+          favorite: item.favorite
+        } : it))
+      );
+
+      // 3. Close modal
+      setSelectedItem(null);
+
+    } catch (e: any) {
+      console.error("Failed to save details:", e);
+      alert("Could not save changes. Please try again.");
+    }
   };
+
 
   const handleOpenForm = () => setIsFormOpen(true);
   const handleCloseForm = () => setIsFormOpen(false);
