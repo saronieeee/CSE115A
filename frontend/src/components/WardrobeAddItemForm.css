@@ -63,12 +63,23 @@
 
 .wardrobe-form-row input,
 .wardrobe-form-row select {
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid #d1d5db;
   background-color: #f9fafb;
   font-size: 0.95rem;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.wardrobe-form-row input[type="file"] {
+  padding: 6px 0;
+}
+
+.wardrobe-form-row input[type="file"]::file-selector-button,
+.wardrobe-form-row input[type="file"]::-webkit-file-upload-button {
+  margin-left: 4px;
 }
 
 .wardrobe-form-row input:focus,
@@ -136,6 +147,45 @@
   margin: 0;
   color: #047857;
   font-size: 0.95rem;
+}
+
+.wardrobe-form-hint {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.85rem;
+}
+
+.wardrobe-image-preview {
+  margin-top: 4px;
+  max-width: 200px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background-color: #f9fafb;
+}
+
+.wardrobe-remove-image-button {
+  align-self: flex-start;
+  margin-top: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background-color: #ffffff;
+  color: #374151;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.wardrobe-remove-image-button:hover:not(:disabled),
+.wardrobe-remove-image-button:focus-visible:not(:disabled) {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.wardrobe-remove-image-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 @media (max-width: 480px) {

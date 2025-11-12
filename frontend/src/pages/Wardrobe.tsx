@@ -3,16 +3,11 @@ import "./Wardrobe.css";
 import WardrobeItem from "../components/WardrobeItem";
 import WardrobeAddItemForm from "../components/WardrobeAddItemForm";
 import ItemDetails from "../components/ItemDetails";
-// import WardrobeFilters from "../components/WardrobeFilters";
 import SelectionBar from "../components/SelectionBar";
 import CreateOutfitModal from "../components/CreateOutfitModal";
+import ItemDetailsModal from "../components/ItemDetailsModal";
 
-// Define categories in lowercase to match the data
 const CATEGORIES = ["shirt", "pants", "outerwear"];
-
-// Helper function to capitalize first letter for display (if needed elsewhere)
-const capitalizeFirst = (str: string) =>
-  str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 
 type WardrobeItemType = {
   id: string;
@@ -20,6 +15,7 @@ type WardrobeItemType = {
   category?: string;
   imageUrl?: string;
   favorite?: boolean;
+  tags?: string[];
   color?: string | null;
   occasion?: string | null;
 };
@@ -31,57 +27,61 @@ const Wardrobe: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // UI niceties from the other branch
+  // UI niceties
   const [isSticky, setIsSticky] = useState(false);
   const [isMobileView, setIsMobileView] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
+
+  // Details modal (from teammate)
+  const [selectedItem, setSelectedItem] = useState<WardrobeItemType | null>(null);
+  const handleViewDetails = (id: string) => {
+    const item = items.find((it) => it.id === id);
+    if (item) setSelectedItem(item);
+  };
+  const handleCloseDetails = () => setSelectedItem(null);
+  const handleSaveDetails = (
+    id: string,
+    updatedDetails: { title: string; category: string; tags: string[]; color: string }
+  ) => {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...updatedDetails } : it)));
+    setSelectedItem(null);
+  };
 
   const handleOpenForm = () => setIsFormOpen(true);
   const handleCloseForm = () => setIsFormOpen(false);
 
   // Sticky header & responsive checks
-  const handleScroll = useCallback(() => {
-    const offset = window.scrollY;
-    setIsSticky(offset > 100);
-  }, []);
-
-  const handleResize = useCallback(() => {
-    setIsMobileView(window.innerWidth < 1024);
-  }, []);
+  const handleScroll = useCallback(() => setIsSticky(window.scrollY > 100), []);
+  const handleResize = useCallback(() => setIsMobileView(window.innerWidth < 1024), []);
 
   useEffect(() => {
     window.addEventListener("scroll", handleScroll);
     window.addEventListener("resize", handleResize);
-    handleResize(); // initial
+    handleResize();
     return () => {
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleResize);
     };
   }, [handleScroll, handleResize]);
 
-  // Fetch items (preserve robust error handling + query/category params)
+  // Fetch items (keep your robust primary+fallback)
   useEffect(() => {
     const ac = new AbortController();
-
     (async () => {
       try {
         setLoading(true);
         setErr(null);
 
         const params = new URLSearchParams();
-        if (selectedCategories.length > 0) {
-          params.set("categories", selectedCategories.join(","));
-        }
+        if (selectedCategories.length > 0) params.set("categories", selectedCategories.join(","));
         if (query.trim()) params.set("q", query.trim());
         params.set("limit", "24");
         params.set("offset", "0");
 
-        // Try the public API first (credentials include), then fallback
         const apiBase = "http://localhost:4000";
         const primaryUrl = `${apiBase}/api/public/closet-items?${params.toString()}`;
         const fallbackUrl = `/api/clothing-items?${params.toString()}`;
 
-        // Helper to map rows to UI model (prefers image_url then image_path)
         const mapRows = (rows: any[]): WardrobeItemType[] =>
           rows.map((row: any) => ({
             id: row.id,
@@ -93,17 +93,8 @@ const Wardrobe: React.FC = () => {
             occasion: row.occasion ?? null,
           }));
 
-        // attempt #1
-        let res = await fetch(primaryUrl, {
-          credentials: "include",
-          signal: ac.signal,
-        });
-
-        // Fallback attempt if primary fails (non-OK)
-        if (!res.ok) {
-          res = await fetch(fallbackUrl, { signal: ac.signal });
-        }
-
+        let res = await fetch(primaryUrl, { credentials: "include", signal: ac.signal });
+        if (!res.ok) res = await fetch(fallbackUrl, { signal: ac.signal });
         if (!res.ok) throw new Error(`Network error ${res.status}`);
 
         const data = await res.json();
@@ -119,36 +110,27 @@ const Wardrobe: React.FC = () => {
         setLoading(false);
       }
     })();
-
     return () => ac.abort();
   }, [selectedCategories, query]);
 
-  // Quick title-only fallback filter (kept from original)
+  // Filters
   const filteredByTitle = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return items;
     return items.filter((it) => (it.title || "").toLowerCase().includes(q));
   }, [items, query]);
 
-  // Combined filter: categories + richer text search (category/color/occasion/title)
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-
-    return items.filter((item: WardrobeItemType) => {
-      // Category filter
+    return items.filter((item) => {
       if (selectedCategories.length > 0) {
         const cat = (item.category || "").toLowerCase();
         if (!cat || !selectedCategories.includes(cat)) return false;
       }
-
-      // Text filter (richer fields)
       if (q) {
-        const hay = `${item.title ?? ""} ${item.category ?? ""} ${
-          item.color ?? ""
-        } ${item.occasion ?? ""}`.toLowerCase();
+        const hay = `${item.title ?? ""} ${item.category ?? ""} ${item.color ?? ""} ${item.occasion ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-
       return true;
     });
   }, [items, query, selectedCategories]);
@@ -161,17 +143,12 @@ const Wardrobe: React.FC = () => {
     }
     const category = name.toLowerCase();
     setSelectedCategories((prev) =>
-      prev.includes(category)
-        ? prev.filter((c) => c !== category)
-        : [...prev, category]
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
     );
   };
 
-  // Track selected items by id
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
-    new Set()
-  );
-
+  // --- Your selection + outfit creation flow ---
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const toggleSelect = (id: string) => {
     setSelectedItemIds((prev) => {
       const next = new Set(prev);
@@ -180,26 +157,14 @@ const Wardrobe: React.FC = () => {
       return next;
     });
   };
-
   const clearSelection = () => setSelectedItemIds(new Set());
 
-  // state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-
-  // open modal instead of direct POST
   const handleCreateOutfit = () => {
     if (selectedItemIds.size === 0) return;
     setIsCreateOpen(true);
   };
-
-  // actually post after modal submit
-  const submitCreateOutfit = async ({
-    name,
-    userId,
-  }: {
-    name: string;
-    userId: string;
-  }) => {
+  const submitCreateOutfit = async ({ name, userId }: { name: string; userId: string }) => {
     const ids = Array.from(selectedItemIds);
     try {
       const r = await fetch("/api/outfits", {
@@ -218,21 +183,77 @@ const Wardrobe: React.FC = () => {
       await r.json();
       setIsCreateOpen(false);
       clearSelection();
-      // navigate("/outfits"); // optional
     } catch (e: any) {
       alert(`Failed to save outfit: ${e.message}`);
     }
   };
 
+  // --- Teammate’s server-persisted favorite/delete ---
+  const toggleFavorite = async (id: string) => {
+    const current = items.find((i) => i.id === id);
+    if (!current) return;
+    const nextFav = !current.favorite;
+
+    // optimistic
+    setItems((prev) => prev.map((p) => (p.id === id ? { ...p, favorite: nextFav } : p)));
+
+    try {
+      const res = await fetch(`/api/clothing-items/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favorite: nextFav }),
+      });
+      if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
+      const { item } = await res.json();
+
+      setItems((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                favorite: item.favorite,
+                color: item.color,
+                occasion: item.occasion,
+                category: (item.category || "").toLowerCase() || p.category,
+                imageUrl: item.image_url || item.image_path || p.imageUrl,
+              }
+            : p
+        )
+      );
+    } catch (e) {
+      console.error("Favorite update failed", e);
+      // rollback
+      setItems((prev) => prev.map((p) => (p.id === id ? { ...p, favorite: !nextFav } : p)));
+      setErr("Couldn't save favorite. Please try again.");
+    }
+  };
+
+  const deleteItem = async (id: string) => {
+    const snapshot = items;
+    setItems((prev) => prev.filter((p) => p.id !== id));
+    try {
+      const res = await fetch(`/api/clothing-items/${id}`, { method: "DELETE" });
+      if (!res.ok && res.status !== 204) throw new Error(`DELETE failed: ${res.status}`);
+      // also drop from selection if deleted
+      setSelectedItemIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    } catch (e) {
+      console.error("Delete failed", e);
+      setItems(snapshot); // rollback
+      setErr("Couldn't delete item. Please try again.");
+    }
+  };
+
+  // ---- Render ----
   return (
     <div className={`page page-wardrobe ${isMobileView ? "is-mobile" : ""}`}>
       <header className={`wardrobe-header ${isSticky ? "is-sticky" : ""}`}>
         <h1 className="wardrobe-title">Dress To Impress</h1>
-        <button
-          className="wardrobe-add-button"
-          type="button"
-          onClick={handleOpenForm}
-        >
+        <button className="wardrobe-add-button" type="button" onClick={handleOpenForm}>
           Add Item
         </button>
       </header>
@@ -240,9 +261,7 @@ const Wardrobe: React.FC = () => {
       {isFormOpen && <WardrobeAddItemForm onClose={handleCloseForm} />}
 
       <section
-        className={`wardrobe-controls ${isSticky ? "is-sticky" : ""} ${
-          isMobileView ? "mobile" : ""
-        }`}
+        className={`wardrobe-controls ${isSticky ? "is-sticky" : ""} ${isMobileView ? "mobile" : ""}`}
       >
         <div className="search-row">
           <input
@@ -256,9 +275,7 @@ const Wardrobe: React.FC = () => {
 
         <div className="category-buttons">
           <button
-            className={`category-chip ${
-              selectedCategories.length === 0 ? "is-active" : ""
-            }`}
+            className={`category-chip ${selectedCategories.length === 0 ? "is-active" : ""}`}
             onClick={() => toggleChip("All Items")}
           >
             All Items
@@ -295,29 +312,21 @@ const Wardrobe: React.FC = () => {
           <div className="empty-card">
             <div className="empty-icon">🖼️</div>
             <h3>Your wardrobe is empty</h3>
-            <p>
-              Start building your digital wardrobe by adding your first item.
-            </p>
+            <p>Start building your digital wardrobe by adding your first item.</p>
           </div>
         ) : (filtered.length ? filtered : filteredByTitle).length === 0 ? (
           <div className="empty-card">
             <div className="empty-icon">🔍</div>
             <h3>No items found</h3>
-            <p>
-              Try adjusting your filters or search terms to find what you're
-              looking for.
-            </p>
+            <p>Try adjusting your filters or search terms to find what you're looking for.</p>
           </div>
         ) : (
           <div className="grid">
             {(filtered.length ? filtered : filteredByTitle).map((it) => {
               const isSelected = selectedItemIds.has(it.id);
               return (
-                <div
-                  key={it.id}
-                  className={`item-card ${isSelected ? "is-selected" : ""}`}
-                >
-                  {/* Click layer to toggle selection */}
+                <div key={it.id} className={`item-card ${isSelected ? "is-selected" : ""}`}>
+                  {/* selection overlay */}
                   <button
                     type="button"
                     className="item-card__select-overlay"
@@ -325,9 +334,7 @@ const Wardrobe: React.FC = () => {
                     aria-pressed={isSelected}
                     aria-label={isSelected ? "Deselect item" : "Select item"}
                   />
-
-                  {/* A simple check/marker when selected */}
-
+                  {/* If you want the details modal on click instead, wire WardrobeItem onClick to handleViewDetails(it.id) and remove the overlay. */}
                   <WardrobeItem
                     id={it.id}
                     title={it.title}
@@ -337,27 +344,11 @@ const Wardrobe: React.FC = () => {
                     favorite={!!it.favorite}
                     onClick={() => {}}
                   />
-
                   <ItemDetails
                     id={it.id}
                     favorite={!!it.favorite}
-                    onToggleFavorite={(id) =>
-                      setItems((prev) =>
-                        prev.map((p) =>
-                          p.id === id ? { ...p, favorite: !p.favorite } : p
-                        )
-                      )
-                    }
-                    onDelete={(id) => {
-                      setItems((prev) => prev.filter((p) => p.id !== id));
-                      // also remove from selection if it was selected
-                      setSelectedItemIds((prev) => {
-                        if (!prev.has(id)) return prev;
-                        const next = new Set(prev);
-                        next.delete(id);
-                        return next;
-                      });
-                    }}
+                    onToggleFavorite={toggleFavorite}
+                    onDelete={deleteItem}
                   />
                 </div>
               );
@@ -365,28 +356,40 @@ const Wardrobe: React.FC = () => {
           </div>
         )}
       </main>
+
       {selectedItemIds.size > 0 && (
-        <>
-          <SelectionBar
-            count={selectedItemIds.size}
-            onClear={clearSelection}
-            onCreate={handleCreateOutfit}
-            disabled={false}
-          />
-        </>
+        <SelectionBar
+          count={selectedItemIds.size}
+          onClear={clearSelection}
+          onCreate={handleCreateOutfit}
+          disabled={false}
+        />
       )}
+
       <CreateOutfitModal
         open={isCreateOpen}
         defaultName={`Outfit – ${new Date().toLocaleDateString()}`}
-        // optionally prefill userId from localStorage if you want:
         defaultUserId={localStorage.getItem("DTI_DEV_USER_ID") || ""}
         onCancel={() => setIsCreateOpen(false)}
         onSubmit={(vals) => {
-          // cache the dev user id for convenience
           localStorage.setItem("DTI_DEV_USER_ID", vals.userId);
           submitCreateOutfit(vals);
         }}
       />
+
+      {/* Details Modal (still available if you later wire it up) */}
+      {selectedItem && (
+        <ItemDetailsModal
+          id={selectedItem.id}
+          imageUrl={selectedItem.imageUrl || ""}
+          title={selectedItem.title}
+          category={selectedItem.category}
+          tags={selectedItem.tags || []}
+          color={selectedItem.color || ""}
+          onClose={handleCloseDetails}
+          onSave={(updated) => handleSaveDetails(selectedItem.id, updated)}
+        />
+      )}
     </div>
   );
 };
