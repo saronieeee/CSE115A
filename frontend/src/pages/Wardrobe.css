@@ -473,3 +473,31 @@
   .grid { grid-template-columns: repeat(2, 1fr); }
   .wardrobe-page { padding:12px }
 }
+
+/* clickable overlay that sits above the card to toggle selection */
+.item-card {
+  position: relative;
+}
+
+.item-card__select-overlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.65);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 8px;
+  cursor: pointer;
+  z-index: 3;
+}
+
+/* when the item is selected, make the toggle “active” */
+.item-card.is-selected .item-card__select-overlay {
+  background: #0b2340;
+  color: #fff;
+  border: none;
+  box-shadow: 0 6px 18px rgba(11,35,64,0.28);
+}
+
+
