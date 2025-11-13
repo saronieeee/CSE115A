@@ -1,115 +1,127 @@
-
 import React, { useEffect, useState } from "react";
 import OutfitCard from "../components/OutfitCard";
-import "./Outfits.css";
 
-type OutfitAPIItem = {
+type ClosetItem = {
+  id: string;
   category: string | null;
-  link_id: string;
-  closet_item: {
-    id: string;
-    category: string | null;
-    color: string | null;
-    image_path: string | null;
-    times_worn: number | null;
-    user_id: string;
-    occasion: string | null;
-    favorite: boolean | null;
-  } | null;
+  color?: string | null;
+  image_path?: string | null;
+  image_url?: string | null; // if you’ve resolved public URL
 };
 
-type OutfitAPI = {
+type OutfitItemLink = {
+  link_id: string;
+  category: string | null;
+  closet_item: ClosetItem | null;
+};
+
+type OutfitRow = {
   id: string;
   name: string;
-  last_worn: string | null;
-  worn_count: number | null;
-  user_id: string;
-  items: OutfitAPIItem[];
+  worn_count?: number | null;
+  last_worn?: string | null;
+  user_id?: string;
+  items?: OutfitItemLink[];
 };
 
 const Outfits: React.FC = () => {
-  const [outfits, setOutfits] = useState<OutfitAPI[]>([]);
+  const [outfits, setOutfits] = useState<OutfitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
+  const userId = localStorage.getItem("DTI_DEV_USER_ID") || ""; // dev-only header to match backend
+
   useEffect(() => {
-    setLoading(true);
-    fetch("/api/outfits")
-      .then((r) => {
+    const ac = new AbortController();
+    (async () => {
+      try {
+        setLoading(true);
+        setErr(null);
+        const r = await fetch("/api/outfits", { signal: ac.signal });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then((d) => setOutfits(d.outfits || []))
-      .catch((e) => setErr(e.message))
-      .finally(() => setLoading(false));
+        const d = await r.json();
+        setOutfits(Array.isArray(d?.outfits) ? d.outfits : []);
+      } catch (e: any) {
+        if (e.name !== "AbortError") {
+          console.error(e);
+          setErr("Failed to load outfits.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => ac.abort();
   }, []);
 
-  const openOutfit = (id: string) => {
-    // TODO: route to outfit detail if you have one (e.g., /outfits/:id)
-    // navigate(`/outfits/${id}`)
-    console.log("open outfit", id);
+  const thumbsFor = (o: OutfitRow) => {
+    const items = o.items ?? [];
+    return items.slice(0, 3).map((j) => {
+      const img =
+        j.closet_item?.image_url ||
+        j.closet_item?.image_path ||
+        ""; // leave empty if none (placeholder shows via CSS if you want)
+      const label = j.category || j.closet_item?.category || undefined;
+      return { url: img, label };
+    });
   };
 
-  if (loading) {
-    return (
-      <div className="page page-outfits">
-        <header><h1>Outfits</h1></header>
-        <section className="outfits-grid">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="outfit-card skeleton" />
-          ))}
-        </section>
-      </div>
-    );
-  }
-
-  if (err) {
-    return (
-      <div className="page page-outfits">
-        <header><h1>Outfits</h1></header>
-        <section><p className="error">Failed to load outfits: {err}</p></section>
-      </div>
-    );
-  }
-
-  if (!outfits.length) {
-    return (
-      <div className="page page-outfits">
-        <header><h1>Outfits</h1></header>
-        <section><p>No outfits yet—save one from the generator!</p></section>
-      </div>
-    );
-  }
+  // === mirror of your Wardrobe delete pattern (optimistic with rollback) ===
+  const handleDeleteOutfit = async (id: string) => {
+    const snapshot = outfits;
+    // optimistic remove
+    setOutfits((prev) => prev.filter((o) => o.id !== id));
+    try {
+      const r = await fetch(`/api/outfits/${id}`, {
+        method: "DELETE",
+        headers: userId ? { "x-user-id": userId } : {},
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    } catch (e) {
+      console.error("Delete outfit failed", e);
+      setOutfits(snapshot); // rollback
+      alert("Couldn't delete outfit. Please try again.");
+    }
+  };
 
   return (
     <div className="page page-outfits">
-      <header><h1>Outfits</h1></header>
+      <header>
+        <h1>Outfits</h1>
+      </header>
 
-      <section className="outfits-grid">
-        {outfits.map((o) => {
-          // build up to 3 thumbnails (prefer shirt, pants, outerwear order)
-          const order = { shirt: 0, pants: 1, outerwear: 2 } as Record<string, number>;
-          const imgs = (o.items || [])
-            .filter((x) => x.closet_item?.image_path)
-            .sort((a, b) => (order[(a.category || a.closet_item?.category || "")] ?? 99) - (order[(b.category || b.closet_item?.category || "")] ?? 99))
-            .map((x) => ({
-              url: x.closet_item!.image_path as string,
-              label: (x.category || x.closet_item?.category || undefined) || undefined,
-            }));
-
-          return (
+      {loading ? (
+        <p>Loading…</p>
+      ) : err ? (
+        <div className="empty-card">
+          <div className="empty-icon">⚠️</div>
+          <h3>Couldn’t load outfits</h3>
+          <p>{err}</p>
+        </div>
+      ) : outfits.length === 0 ? (
+        <div className="empty-card">
+          <div className="empty-icon">🧩</div>
+          <h3>No outfits yet</h3>
+          <p>Create your first outfit from the Wardrobe page.</p>
+        </div>
+      ) : (
+        <div className="outfits-grid">
+          {outfits.map((o) => (
             <OutfitCard
               key={o.id}
               id={o.id}
               name={o.name}
               wornCount={o.worn_count ?? undefined}
-              lastWorn={o.last_worn}
-              thumbs={imgs.slice(0, 3)}
-              onClick={openOutfit}
+              lastWorn={o.last_worn ?? null}
+              thumbs={thumbsFor(o)}
+              onClick={(id) => {
+                // optional: navigate to outfit detail
+                console.log("Open outfit", id);
+              }}
+              onDelete={handleDeleteOutfit}  // ← mirrors Wardrobe delete
             />
-          );
-        })}
-      </section>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

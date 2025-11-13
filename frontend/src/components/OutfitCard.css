@@ -1,19 +1,86 @@
-/* Container button */
 .outfit-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: 100%;
+  height: 100%;
   text-align: left;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   padding: 12px;
   cursor: pointer;
-
   transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
+/* Anchor wrapper for kebab + popup */
+.outfit-menu-anchor {
+  position: absolute;
+  z-index: 2;
+}
 
+/* bottom-left placement */
+.outfit-menu-bottom-left {
+  right: 8px;
+  bottom: 8px;
+}
+
+/* the three-dots button */
+.outfit-kebab {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  font-size: 18px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(2, 8, 23, 0.06);
+}
+
+.outfit-kebab:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+/* popup menu */
+.outfit-menu {
+  position: fixed;
+  left: 0;              /* open to the right of the button if you prefer: left: 0; */
+  bottom: 36px;         /* sit above the kebab */
+  min-width: 160px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 6px;
+  box-shadow: 0 10px 30px rgba(2, 8, 23, 0.12);
+}
+
+.outfit-menu-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.outfit-menu-item:hover {
+  background: #f1f5f9;
+}
+
+.outfit-menu-item.danger {
+  color: #b91c1c;
+}
+
+.outfit-menu-item.danger:hover {
+  background: #fee2e2;
+}
 .outfit-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(2, 8, 23, 0.06);
@@ -41,7 +108,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  aspect-ratio: 1 / 1;     /* keep squares; remove if you prefer natural height */
+  aspect-ratio: 1 / 1;     /* keep squares */
 }
 
 .outfit-thumb img {
@@ -69,6 +136,7 @@
 .outfit-meta {
   display: grid;
   row-gap: 4px;
+  margin-top: 2px;         /* tiny breathing room from thumbs */
 }
 
 .outfit-name {
@@ -80,33 +148,12 @@
   text-overflow: ellipsis;
 }
 
-.outfit-sub {
-  font-size: 12px;
-  color: #64748b;
-}
-
-/* Responsive tweaks */
-@media (max-width: 640px) {
-  .outfit-thumbs {
-    min-height: 100px;
-    gap: 5px;
-  }
-}
-
-@media (max-width: 420px) {
-  .outfit-thumbs {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .outfit-card {
-    padding: 10px;
-    border-radius: 12px;
-  }
-}
-
 /* Stack the meta lines nicely */
 .outfit-sub {
   display: grid;
   row-gap: 6px;
+  font-size: 12px;
+  color: #64748b;
 }
 
 /* A small pill badge style */
@@ -138,3 +185,41 @@
   background: #6366f1;           /* indigo-500-ish */
   display: inline-block;
 }
+
+/* -------- Responsive tweaks (unchanged) -------- */
+@media (max-width: 640px) {
+  .outfit-thumbs {
+    min-height: 100px;
+    gap: 5px;
+  }
+}
+
+@media (max-width: 420px) {
+  .outfit-thumbs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .outfit-card {
+    padding: 10px;
+    border-radius: 12px;
+  }
+}
+
+/* -------- NEW: grid helper for Outfits page -------- */
+/* Use this class on the parent container that maps OutfitCard items, e.g.:
+   <section className="outfits-grid">{outfits.map(...}</section>
+*/
+.outfits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  align-items: stretch;  /* make cards equal height */
+}
+
+/* Optional: a slightly tighter grid on small screens */
+@media (max-width: 640px) {
+  .outfits-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+}
+

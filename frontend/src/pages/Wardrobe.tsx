@@ -7,7 +7,7 @@ import CreateOutfitModal from "../components/CreateOutfitModal";
 import ItemDetailsModal from "../components/ItemDetailsModal";
 import SelectionBar from "../components/SelectionBar";
 
-const CATEGORIES = ["shirt", "pants", "outerwear"];
+const CATEGORIES = ["Shirt", "Pants", "Outerwear", "Accessories", "Shoes"];
 
 type WardrobeItemType = {
   id: string;
