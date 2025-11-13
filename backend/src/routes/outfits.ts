@@ -226,4 +226,42 @@ router.post("/", async (req, res) => {
   }
 });
 
+// DELETE /api/outfits/:id   -> deletes the outfit + its linked combo items
+router.delete("/:id", async (req, res) => {
+  const outfitId = req.params.id;
+  const userId =
+    (req as any).user?.id ||
+    (req.query.user_id as string | undefined) ||
+    (req.headers["x-user-id"] as string | undefined);
+
+  if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+  // (Optional) Verify outfit belongs to user
+  const { data: outfit, error: fetchErr } = await supabaseService
+    .from("outfits")
+    .select("id,user_id")
+    .eq("id", outfitId)
+    .single();
+
+  if (fetchErr || !outfit) return res.status(404).json({ error: "Outfit not found" });
+  if (outfit.user_id !== userId) return res.status(403).json({ error: "Forbidden" });
+
+  // 1) Delete join rows first (if you don't have ON DELETE CASCADE)
+  const { error: joinErr } = await supabaseService
+    .from("outfit_combination_items")
+    .delete()
+    .eq("combination_id", outfitId);
+  if (joinErr) return res.status(500).json({ error: joinErr.message });
+
+  // 2) Delete the outfit
+  const { error: outfitErr } = await supabaseService
+    .from("outfits")
+    .delete()
+    .eq("id", outfitId);
+  if (outfitErr) return res.status(500).json({ error: outfitErr.message });
+
+  return res.json({ success: true });
+});
+
+
 export default router;
