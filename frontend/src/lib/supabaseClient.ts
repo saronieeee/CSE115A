@@ -1,10 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
-const url = process.env.REACT_APP_SUPABASE_URL;
-const anonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+const url = process.env.REACT_APP_SUPABASE_URL as string;
+const anon = process.env.REACT_APP_SUPABASE_ANON_KEY as string;
 
-if (!url || !anonKey) {
-  throw new Error('Missing Supabase configuration. Check REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.');
-}
-
-export const supabase = createClient(url, anonKey);
+export const supabase = createClient(url, anon);
