@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import OutfitCard from "../components/OutfitCard";
 
+
 type ClosetItem = {
   id: string;
   category: string | null;
@@ -56,10 +57,7 @@ const Outfits: React.FC = () => {
   const thumbsFor = (o: OutfitRow) => {
     const items = o.items ?? [];
     return items.slice(0, 3).map((j) => {
-      const img =
-        j.closet_item?.image_url ||
-        j.closet_item?.image_path ||
-        ""; // leave empty if none (placeholder shows via CSS if you want)
+      const img = j.closet_item?.image_url || j.closet_item?.image_path || "";
       const label = j.category || j.closet_item?.category || undefined;
       return { url: img, label };
     });
