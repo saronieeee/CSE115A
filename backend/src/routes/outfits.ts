@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { supabaseService } from "../lib/supabase";
+import { resolvePublicImageUrlAndFixPath } from "../utils/resolveImageUrl";
 
 const router = Router();
 
-// LIST all outfits (always include items)
+// LIST all outfits (always include items) — with image_url resolution
 router.get("/", async (req, res) => {
   const userId = req.query.user_id as string | undefined;
 
@@ -26,21 +27,45 @@ router.get("/", async (req, res) => {
   if (joinErr) return res.status(500).json({ error: joinErr.message });
 
   const itemIds = Array.from(new Set((joins ?? []).map((j) => j.item_id)));
+
+  // ⬇️ include image_url in the SELECT (if you persist it)
   const { data: items, error: itemsErr } = await supabaseService
     .from("closet_items")
     .select(
-      "id, category, color, image_path, times_worn, user_id, occasion, favorite"
+      "id, category, color, image_path, image_url, times_worn, user_id, occasion, favorite"
     )
     .in("id", itemIds);
   if (itemsErr) return res.status(500).json({ error: itemsErr.message });
 
-  const itemsById = new Map((items ?? []).map((i) => [i.id, i]));
+  const SUPABASE_URL = process.env.SUPABASE_URL || "";
+  const hydratedItems = await Promise.all(
+    (items ?? []).map(async (it) => {
+      // if image_url already stored, keep it; else derive from image_path
+      let finalUrl = it.image_url;
+      if (!finalUrl && it.image_path) {
+        try {
+          const resolved = await resolvePublicImageUrlAndFixPath(
+            it.id,
+            it.image_path,
+            SUPABASE_URL
+          );
+          finalUrl = resolved || it.image_path; // fallback to path if needed
+        } catch {
+          finalUrl = it.image_path || null;
+        }
+      }
+      return { ...it, image_url: finalUrl };
+    })
+  );
+
+  const itemsById = new Map(hydratedItems.map((i) => [i.id, i]));
   const joinsByOutfit = new Map<string, any[]>();
   (joins ?? []).forEach((j) => {
+    const src = itemsById.get(j.item_id) || null;
     const arr = joinsByOutfit.get(j.combination_id) ?? [];
     arr.push({
-      category: j.category ?? itemsById.get(j.item_id)?.category ?? null,
-      closet_item: itemsById.get(j.item_id) || null,
+      category: j.category ?? src?.category ?? null,
+      closet_item: src,         // ⬅️ contains image_url now
       link_id: j.id,
     });
     joinsByOutfit.set(j.combination_id, arr);
@@ -60,6 +85,7 @@ router.get("/", async (req, res) => {
 
   return res.json({ outfits: withItems });
 });
+
 
 /* List outfit based on outfit id*/
 router.get("/:id", async (req, res) => {
