@@ -11,25 +11,57 @@ export default function SignIn() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    // 1. Sign in with Supabase Auth
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+
     if (error) {
       alert(error.message || "Sign in failed");
       return;
     }
+
+    // 2. Grab session + token
     const token = data.session?.access_token;
-    if (token) {
+    const userId = data.user?.id ?? data.session?.user?.id;
+
+    if (!token) {
+      alert("No access token returned from Supabase");
+      return;
+    }
+
+    // 3. Store token + user id for use in the rest of the app
+    //    - DTI_ACCESS_TOKEN: used for Authorization: Bearer <token>
+    //    - DTI_DEV_USER_ID: keeps older dev code working that still reads this
+    localStorage.setItem("DTI_ACCESS_TOKEN", token);
+    if (userId) {
+      localStorage.setItem("DTI_DEV_USER_ID", userId);
+    }
+
+    // 4. Ask backend who this user is via /api/auth/me
+    try {
       const res = await fetch("/api/auth/me", {
-        headers: { Authorization: `Bearer ${token}` },
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        credentials: "include", // safe to include; backend uses Authorization
       });
+
       const json = await res.json();
-      if (res.ok) {
-        navigate("/wardrobe");
-      } else {
+
+      if (!res.ok) {
         alert(json.error || "Failed to fetch user");
+        return;
       }
+
+      // 5. If backend confirms, navigate to wardrobe
+      navigate("/wardrobe");
+    } catch (err) {
+      console.error("Failed to call /api/auth/me", err);
+      alert("Something went wrong while verifying your session.");
     }
   };
 

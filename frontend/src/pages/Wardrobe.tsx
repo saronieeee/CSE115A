@@ -32,23 +32,27 @@ const Wardrobe: React.FC = () => {
   const [isMobileView, setIsMobileView] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  // Details modal (from teammate)
+  // Details modal
   const [selectedItem, setSelectedItem] = useState<WardrobeItemType | null>(null);
-  // Handler for opening the details modal
   const handleViewDetails = (id: string) => {
     const item = items.find((it) => it.id === id);
     if (item) setSelectedItem(item);
   };
   const handleCloseDetails = () => setSelectedItem(null);
+
   const handleSaveDetails = async (
     id: string,
     updatedDetails: { title: string; category: string; tags: string[]; color: string }
   ) => {
     try {
-      // 1. Send update to backend
+      const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+
       const res = await fetch(`/api/clothing-items/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify(updatedDetails),
       });
 
@@ -56,28 +60,28 @@ const Wardrobe: React.FC = () => {
 
       const { item } = await res.json();
 
-      // 2. Update React state with the returned (saved) item
       setItems((prev) =>
-        prev.map((it) => (it.id === id ? {
-          ...it,
-          title: item.category || it.title,
-          category: item.category?.toLowerCase() || it.category,
-          tags: updatedDetails.tags,
-          color: item.color,
-          imageUrl: item.image_url || item.image_path || it.imageUrl,
-          favorite: item.favorite
-        } : it))
+        prev.map((it) =>
+          it.id === id
+            ? {
+                ...it,
+                title: item.category || it.title,
+                category: item.category?.toLowerCase() || it.category,
+                tags: updatedDetails.tags,
+                color: item.color,
+                imageUrl: item.image_url || item.image_path || it.imageUrl,
+                favorite: item.favorite,
+              }
+            : it
+        )
       );
 
-      // 3. Close modal
       setSelectedItem(null);
-
     } catch (e: any) {
       console.error("Failed to save details:", e);
       alert("Could not save changes. Please try again.");
     }
   };
-
 
   const handleOpenForm = () => setIsFormOpen(true);
   const handleCloseForm = () => setIsFormOpen(false);
@@ -96,13 +100,23 @@ const Wardrobe: React.FC = () => {
     };
   }, [handleScroll, handleResize]);
 
-  // Fetch items (keep your robust primary+fallback)
+  // Fetch items (with auth + per-user filter)
   useEffect(() => {
     const ac = new AbortController();
     (async () => {
       try {
         setLoading(true);
         setErr(null);
+
+        const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+        const currentUserId = localStorage.getItem("DTI_DEV_USER_ID"); // Supabase user id (optional extra filter)
+
+        if (!token) {
+          setItems([]);
+          setErr("You must be signed in to view your wardrobe.");
+          setLoading(false);
+          return;
+        }
 
         const params = new URLSearchParams();
         if (selectedCategories.length > 0) params.set("categories", selectedCategories.join(","));
@@ -125,13 +139,32 @@ const Wardrobe: React.FC = () => {
             occasion: row.occasion ?? null,
           }));
 
-        let res = await fetch(primaryUrl, { credentials: "include", signal: ac.signal });
-        if (!res.ok) res = await fetch(fallbackUrl, { signal: ac.signal });
+        let res = await fetch(primaryUrl, {
+          credentials: "include",
+          signal: ac.signal,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          res = await fetch(fallbackUrl, {
+            signal: ac.signal,
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        }
+
         if (!res.ok) throw new Error(`Network error ${res.status}`);
 
         const data = await res.json();
         const rows: any[] = Array.isArray(data?.items) ? data.items : [];
-        setItems(mapRows(rows));
+
+        const visibleRows =
+          currentUserId != null ? rows.filter((r) => r.user_id === currentUserId) : rows;
+
+        setItems(mapRows(visibleRows));
       } catch (e: any) {
         if (e?.name !== "AbortError") {
           console.error(e);
@@ -160,7 +193,9 @@ const Wardrobe: React.FC = () => {
         if (!cat || !selectedCategories.includes(cat)) return false;
       }
       if (q) {
-        const hay = `${item.title ?? ""} ${item.category ?? ""} ${item.color ?? ""} ${item.occasion ?? ""}`.toLowerCase();
+        const hay = `${item.title ?? ""} ${item.category ?? ""} ${item.color ?? ""} ${
+          item.occasion ?? ""
+        }`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -179,7 +214,7 @@ const Wardrobe: React.FC = () => {
     );
   };
 
-  // --- Your selection + outfit creation flow ---
+  // --- Selection + outfit creation flow ---
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const toggleSelect = (id: string) => {
     setSelectedItemIds((prev) => {
@@ -196,14 +231,22 @@ const Wardrobe: React.FC = () => {
     if (selectedItemIds.size === 0) return;
     setIsCreateOpen(true);
   };
-  const submitCreateOutfit = async ({ name, userId }: { name: string; userId: string }) => {
+
+  const submitCreateOutfit = async (name: string) => {
     const ids = Array.from(selectedItemIds);
+    const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+
+    if (!token) {
+      alert("You must be signed in to create outfits.");
+      return;
+    }
+
     try {
       const r = await fetch("/api/outfits", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-user-id": userId, // dev-only; replace with real auth later
+          Authorization: `Bearer ${token}`,
         },
         credentials: "include",
         body: JSON.stringify({ name, itemIds: ids }),
@@ -224,13 +267,13 @@ const Wardrobe: React.FC = () => {
   const handleVirtualTryOn = () => {
     const ids = Array.from(selectedItemIds);
     console.log("Virtual Try-On for:", ids);
-    // TODO: route to AI/try-on with selected ids
   };
 
   const handleAddSelectionToFavorites = async () => {
     if (selectedItemIds.size === 0) return;
     const snapshot = items;
-    // optimistic
+    const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+
     setItems((prev) => prev.map((it) => (selectedItemIds.has(it.id) ? { ...it, favorite: true } : it)));
     try {
       const ids = Array.from(selectedItemIds);
@@ -238,7 +281,10 @@ const Wardrobe: React.FC = () => {
         ids.map((id) =>
           fetch(`/api/clothing-items/${id}`, {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
             body: JSON.stringify({ favorite: true }),
           })
         )
@@ -254,11 +300,21 @@ const Wardrobe: React.FC = () => {
     if (selectedItemIds.size === 0) return;
     const snapshot = items;
     const ids = Array.from(selectedItemIds);
-    // optimistic remove
+    const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+
     setItems((prev) => prev.filter((it) => !selectedItemIds.has(it.id)));
     setSelectedItemIds(new Set());
     try {
-      await Promise.all(ids.map((id) => fetch(`/api/clothing-items/${id}`, { method: "DELETE" })));
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/clothing-items/${id}`, {
+            method: "DELETE",
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          })
+        )
+      );
     } catch (e) {
       console.error("Batch delete failed", e);
       setItems(snapshot);
@@ -266,19 +322,21 @@ const Wardrobe: React.FC = () => {
     }
   };
 
-  // --- Teammate’s server-persisted favorite/delete ---
   const toggleFavorite = async (id: string) => {
     const current = items.find((i) => i.id === id);
     if (!current) return;
     const nextFav = !current.favorite;
+    const token = localStorage.getItem("DTI_ACCESS_TOKEN");
 
-    // optimistic
     setItems((prev) => prev.map((p) => (p.id === id ? { ...p, favorite: nextFav } : p)));
 
     try {
       const res = await fetch(`/api/clothing-items/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ favorite: nextFav }),
       });
       if (!res.ok) throw new Error(`PATCH failed: ${res.status}`);
@@ -300,7 +358,6 @@ const Wardrobe: React.FC = () => {
       );
     } catch (e) {
       console.error("Favorite update failed", e);
-      // rollback
       setItems((prev) => prev.map((p) => (p.id === id ? { ...p, favorite: !nextFav } : p)));
       setErr("Couldn't save favorite. Please try again.");
     }
@@ -308,11 +365,16 @@ const Wardrobe: React.FC = () => {
 
   const deleteItem = async (id: string) => {
     const snapshot = items;
+    const token = localStorage.getItem("DTI_ACCESS_TOKEN");
     setItems((prev) => prev.filter((p) => p.id !== id));
     try {
-      const res = await fetch(`/api/clothing-items/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/clothing-items/${id}`, {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
       if (!res.ok && res.status !== 204) throw new Error(`DELETE failed: ${res.status}`);
-      // also drop from selection if deleted
       setSelectedItemIds((prev) => {
         if (!prev.has(id)) return prev;
         const next = new Set(prev);
@@ -321,7 +383,7 @@ const Wardrobe: React.FC = () => {
       });
     } catch (e) {
       console.error("Delete failed", e);
-      setItems(snapshot); // rollback
+      setItems(snapshot);
       setErr("Couldn't delete item. Please try again.");
     }
   };
@@ -404,7 +466,6 @@ const Wardrobe: React.FC = () => {
               const isSelected = selectedItemIds.has(it.id);
               return (
                 <div key={it.id} className={`item-card ${isSelected ? "is-selected" : ""}`}>
-                  {/* selection overlay */}
                   <button
                     type="button"
                     className="item-card__select-overlay"
@@ -412,7 +473,6 @@ const Wardrobe: React.FC = () => {
                     aria-pressed={isSelected}
                     aria-label={isSelected ? "Deselect item" : "Select item"}
                   />
-                  {/* If you want the details modal on click instead, wire WardrobeItem onClick to handleViewDetails(it.id) and remove the overlay. */}
                   <WardrobeItem
                     id={it.id}
                     title={it.title}
@@ -467,15 +527,12 @@ const Wardrobe: React.FC = () => {
       <CreateOutfitModal
         open={isCreateOpen}
         defaultName={`Outfit – ${new Date().toLocaleDateString()}`}
-        defaultUserId={localStorage.getItem("DTI_DEV_USER_ID") || ""}
         onCancel={() => setIsCreateOpen(false)}
-        onSubmit={(vals) => {
-          localStorage.setItem("DTI_DEV_USER_ID", vals.userId);
-          submitCreateOutfit(vals);
+        onSubmit={(name) => {
+          submitCreateOutfit(name);
         }}
       />
 
-      {/* Details Modal (still available if you later wire it up) */}
       {selectedItem && (
         <ItemDetailsModal
           id={selectedItem.id}
@@ -488,8 +545,6 @@ const Wardrobe: React.FC = () => {
           onSave={(updated) => handleSaveDetails(selectedItem.id, updated)}
         />
       )}
-
-      {/* (legacy array-based selection removed) */}
     </div>
   );
 };
