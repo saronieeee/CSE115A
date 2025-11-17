@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
 import OutfitCard from "../components/OutfitCard";
 
-
 type ClosetItem = {
   id: string;
   category: string | null;
   color?: string | null;
   image_path?: string | null;
-  image_url?: string | null; // if you’ve resolved public URL
+  image_url?: string | null;
 };
 
 type OutfitItemLink = {
@@ -30,18 +29,43 @@ const Outfits: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  const userId = localStorage.getItem("DTI_DEV_USER_ID") || ""; // dev-only header to match backend
-
   useEffect(() => {
     const ac = new AbortController();
+
     (async () => {
       try {
         setLoading(true);
         setErr(null);
-        const r = await fetch("/api/outfits", { signal: ac.signal });
+
+        const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+        const currentUserId = localStorage.getItem("DTI_DEV_USER_ID"); // Supabase user.id
+
+        if (!token) {
+          setOutfits([]);
+          setErr("You must be signed in to view outfits.");
+          setLoading(false);
+          return;
+        }
+
+        const r = await fetch("/api/outfits", {
+          signal: ac.signal,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
         const d = await r.json();
-        setOutfits(Array.isArray(d?.outfits) ? d.outfits : []);
+        const rawOutfits: OutfitRow[] = Array.isArray(d?.outfits) ? d.outfits : [];
+
+        // 🔒 Frontend filter: only show outfits that belong to the current user
+        const visibleOutfits =
+          currentUserId
+            ? rawOutfits.filter((o) => o.user_id === currentUserId)
+            : rawOutfits;
+
+        setOutfits(visibleOutfits);
       } catch (e: any) {
         if (e.name !== "AbortError") {
           console.error(e);
@@ -51,6 +75,7 @@ const Outfits: React.FC = () => {
         setLoading(false);
       }
     })();
+
     return () => ac.abort();
   }, []);
 
@@ -63,20 +88,25 @@ const Outfits: React.FC = () => {
     });
   };
 
-  // === mirror of your Wardrobe delete pattern (optimistic with rollback) ===
   const handleDeleteOutfit = async (id: string) => {
     const snapshot = outfits;
-    // optimistic remove
     setOutfits((prev) => prev.filter((o) => o.id !== id));
+
     try {
+      const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+      if (!token) throw new Error("Not signed in");
+
       const r = await fetch(`/api/outfits/${id}`, {
         method: "DELETE",
-        headers: userId ? { "x-user-id": userId } : {},
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
+
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
     } catch (e) {
       console.error("Delete outfit failed", e);
-      setOutfits(snapshot); // rollback
+      setOutfits(snapshot);
       alert("Couldn't delete outfit. Please try again.");
     }
   };
@@ -111,11 +141,8 @@ const Outfits: React.FC = () => {
               wornCount={o.worn_count ?? undefined}
               lastWorn={o.last_worn ?? null}
               thumbs={thumbsFor(o)}
-              onClick={(id) => {
-                // optional: navigate to outfit detail
-                console.log("Open outfit", id);
-              }}
-              onDelete={handleDeleteOutfit}  // ← mirrors Wardrobe delete
+              onClick={(id) => console.log("Open outfit", id)}
+              onDelete={handleDeleteOutfit}
             />
           ))}
         </div>

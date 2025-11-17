@@ -1,19 +1,21 @@
 import { Router } from "express";
 import { supabaseService } from "../lib/supabase";
 import { resolvePublicImageUrlAndFixPath } from "../utils/resolveImageUrl";
+import { requireUser } from "../lib/requireUser";
 
 const router = Router();
 
-// LIST all outfits (always include items) — with image_url resolution
-router.get("/", async (req, res) => {
-  const userId = req.query.user_id as string | undefined;
+// LIST all outfits for current user (always include items)
+router.get("/", requireUser, async (req, res) => {
+  const user = (req as any).user;
+  const userId = user.id;
 
   let q = supabaseService
     .from("outfits")
     .select("id,name,last_worn,worn_count,user_id")
+    .eq("user_id", userId) // 🔐 only this user’s outfits
     .order("last_worn", { ascending: false })
     .limit(100);
-  if (userId) q = q.eq("user_id", userId);
 
   const { data: outfits, error: outfitErr } = await q;
   if (outfitErr) return res.status(500).json({ error: outfitErr.message });
@@ -28,19 +30,18 @@ router.get("/", async (req, res) => {
 
   const itemIds = Array.from(new Set((joins ?? []).map((j) => j.item_id)));
 
-  // ⬇️ include image_url in the SELECT (if you persist it)
   const { data: items, error: itemsErr } = await supabaseService
     .from("closet_items")
     .select(
       "id, category, color, image_path, image_url, times_worn, user_id, occasion, favorite"
     )
     .in("id", itemIds);
+
   if (itemsErr) return res.status(500).json({ error: itemsErr.message });
 
   const SUPABASE_URL = process.env.SUPABASE_URL || "";
   const hydratedItems = await Promise.all(
     (items ?? []).map(async (it) => {
-      // if image_url already stored, keep it; else derive from image_path
       let finalUrl = it.image_url;
       if (!finalUrl && it.image_path) {
         try {
@@ -49,7 +50,7 @@ router.get("/", async (req, res) => {
             it.image_path,
             SUPABASE_URL
           );
-          finalUrl = resolved || it.image_path; // fallback to path if needed
+          finalUrl = resolved || it.image_path;
         } catch {
           finalUrl = it.image_path || null;
         }
@@ -60,12 +61,13 @@ router.get("/", async (req, res) => {
 
   const itemsById = new Map(hydratedItems.map((i) => [i.id, i]));
   const joinsByOutfit = new Map<string, any[]>();
+
   (joins ?? []).forEach((j) => {
     const src = itemsById.get(j.item_id) || null;
     const arr = joinsByOutfit.get(j.combination_id) ?? [];
     arr.push({
       category: j.category ?? src?.category ?? null,
-      closet_item: src,         // ⬅️ contains image_url now
+      closet_item: src,
       link_id: j.id,
     });
     joinsByOutfit.set(j.combination_id, arr);
@@ -86,26 +88,26 @@ router.get("/", async (req, res) => {
   return res.json({ outfits: withItems });
 });
 
-
-/* List outfit based on outfit id*/
-router.get("/:id", async (req, res) => {
+/* Get single outfit (owner only) */
+router.get("/:id", requireUser, async (req, res) => {
   const outfitId = req.params.id;
+  const user = (req as any).user;
+  const userId = user.id;
 
-  // Fetch the outfit
   const { data: outfit, error: outfitErr } = await supabaseService
     .from("outfits")
-    .select("id,name,last_worn,worn_count")
+    .select("id,name,last_worn,worn_count,user_id")
     .eq("id", outfitId)
+    .eq("user_id", userId) // 🔐 must belong to current user
     .single();
 
   if (outfitErr) {
-    if (outfitErr.code === "PGRST116" /* no rows */) {
+    if (outfitErr.code === "PGRST116") {
       return res.status(404).json({ error: "Outfit not found" });
     }
     return res.status(500).json({ error: outfitErr.message });
   }
 
-  // JOIN
   const { data: joins, error: joinErr } = await supabaseService
     .from("outfit_combination_items")
     .select("id, combination_id, item_id, category")
@@ -118,7 +120,6 @@ router.get("/:id", async (req, res) => {
     return res.json({ ...outfit, items: [] });
   }
 
-  // 3) Fetch the actual closet items in one query
   const { data: items, error: itemsErr } = await supabaseService
     .from("closet_items")
     .select(
@@ -128,8 +129,6 @@ router.get("/:id", async (req, res) => {
 
   if (itemsErr) return res.status(500).json({ error: itemsErr.message });
 
-  // Join the data together based on the category
-  // Currently the only categoies for clothing are shirt, pants, outerwear
   const byId = new Map((items ?? []).map((i) => [i.id, i]));
   const merged = (joins ?? [])
     .map((j) => ({
@@ -137,13 +136,8 @@ router.get("/:id", async (req, res) => {
       closet_item: byId.get(j.item_id) || null,
       link_id: j.id,
     }))
-
-    // consistent order
     .sort((a, b) => {
-      const order = { shirt: 0, pants: 1, outerwear: 2 } as Record<
-        string,
-        number
-      >;
+      const order = { shirt: 0, pants: 1, outerwear: 2 } as Record<string, number>;
       return (order[a.category] ?? 99) - (order[b.category] ?? 99);
     });
 
@@ -159,31 +153,26 @@ router.get("/:id", async (req, res) => {
 const normalizeCategory = (raw?: string | null) => {
   const c = (raw || "").trim().toLowerCase();
   if (!c) return null;
-  if (c === "jacket") return "outerwear"; // keep app vocabulary consistent
+  if (c === "jacket") return "outerwear";
   if (["shirt", "pants", "outerwear"].includes(c)) return c;
   return null;
 };
 
 type CreateOutfitBody = {
   name?: string;
-  itemIds: string[]; // closet_items.id
+  itemIds: string[];
 };
 
-router.post("/", async (req, res) => {
+router.post("/", requireUser, async (req, res) => {
   const { name, itemIds }: CreateOutfitBody = req.body || {};
+  const user = (req as any).user;
+  const userId = user.id;
 
-  const userId =
-    (req as any).user?.id ||
-    (req.query.user_id as string | undefined) ||
-    (req.headers["x-user-id"] as string | undefined);
-
-  if (!userId) return res.status(401).json({ error: "Unauthorized" });
   if (!Array.isArray(itemIds) || itemIds.length === 0) {
     return res.status(400).json({ error: "itemIds must be a non-empty array" });
   }
 
   try {
-    // 1) Create outfit
     const outfitName =
       (typeof name === "string" && name.trim()) ||
       `Outfit – ${new Date().toLocaleDateString()}`;
@@ -201,19 +190,16 @@ router.post("/", async (req, res) => {
     }
     const newOutfitId = created.id as string;
 
-    // 2) Fetch items to verify ownership and get categories
     const { data: items, error: itemsErr } = await supabaseService
       .from("closet_items")
       .select("id, user_id, category")
       .in("id", itemIds);
 
     if (itemsErr) {
-      // cleanup created outfit
       await supabaseService.from("outfits").delete().eq("id", newOutfitId);
       return res.status(500).json({ error: itemsErr.message });
     }
 
-    // Validate ownership + presence
     const byId = new Map((items || []).map((i) => [i.id, i]));
     const invalid: string[] = [];
     itemIds.forEach((iid) => {
@@ -228,14 +214,12 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // 3) Build join rows using item.category from DB
     const joinRows = itemIds.map((iid) => {
       const dbCat = byId.get(iid)?.category ?? null;
-      const cat = normalizeCategory(dbCat); // may be null if unknown
+      const cat = normalizeCategory(dbCat);
       return { combination_id: newOutfitId, item_id: iid, category: cat };
     });
 
-    // 4) Insert joins
     if (joinRows.length) {
       const { error: joinErr } = await supabaseService
         .from("outfit_combination_items")
@@ -252,34 +236,30 @@ router.post("/", async (req, res) => {
   }
 });
 
-// DELETE /api/outfits/:id   -> deletes the outfit + its linked combo items
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireUser, async (req, res) => {
   const outfitId = req.params.id;
-  const userId =
-    (req as any).user?.id ||
-    (req.query.user_id as string | undefined) ||
-    (req.headers["x-user-id"] as string | undefined);
+  const user = (req as any).user;
+  const userId = user.id;
 
-  if (!userId) return res.status(401).json({ error: "Unauthorized" });
-
-  // (Optional) Verify outfit belongs to user
   const { data: outfit, error: fetchErr } = await supabaseService
     .from("outfits")
     .select("id,user_id")
     .eq("id", outfitId)
     .single();
 
-  if (fetchErr || !outfit) return res.status(404).json({ error: "Outfit not found" });
-  if (outfit.user_id !== userId) return res.status(403).json({ error: "Forbidden" });
+  if (fetchErr || !outfit) {
+    return res.status(404).json({ error: "Outfit not found" });
+  }
+  if (outfit.user_id !== userId) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
 
-  // 1) Delete join rows first (if you don't have ON DELETE CASCADE)
   const { error: joinErr } = await supabaseService
     .from("outfit_combination_items")
     .delete()
     .eq("combination_id", outfitId);
   if (joinErr) return res.status(500).json({ error: joinErr.message });
 
-  // 2) Delete the outfit
   const { error: outfitErr } = await supabaseService
     .from("outfits")
     .delete()
@@ -288,6 +268,5 @@ router.delete("/:id", async (req, res) => {
 
   return res.json({ success: true });
 });
-
 
 export default router;
