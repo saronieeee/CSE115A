@@ -92,6 +92,19 @@
   font-weight: 700;
 }
 
+.stat-image-wrapper {
+  margin-top: 8px;
+  width: 100%;
+}
+
+.stat-image {
+  width: 100%;
+  height: 140px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 1px solid #eef2f6;
+}
+
 .stat-sub {
   margin-top: 8px;
   font-size: 12px;
@@ -161,6 +174,15 @@
   align-items: center;
   justify-content: center;
   font-size: 20px;
+}
+
+.history-thumb,
+.forgotten-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #eef2f6;
 }
 
 .item-info .item-name {
