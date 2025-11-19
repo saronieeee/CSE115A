@@ -1,5 +1,6 @@
 import React, { ChangeEvent, FormEvent, useRef, useState } from "react";
 import "./WardrobeAddItemForm.css";
+import { CATEGORY_OPTIONS } from "../constants/categories";
 
 type Props = {
   onClose: () => void;
@@ -239,11 +240,11 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
             <option value="" disabled>
               Select a category
             </option>
-            <option value="shirt">Shirt</option>
-            <option value="pants">Pants</option>
-            <option value="outerwear">Outerwear</option>
-            <option value="accessories">Accessories</option>
-            <option value="shoes">Shoes</option>
+            {CATEGORY_OPTIONS.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </div>
 

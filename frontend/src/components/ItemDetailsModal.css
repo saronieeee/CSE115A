@@ -132,11 +132,14 @@
   font-weight: 500;
 }
 
-.form-group input {
+.form-group input,
+.form-group select {
   width: 100%;
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
+  display: block;
+  box-sizing: border-box;
 }
 
 .form-actions {
