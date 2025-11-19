@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { supabaseService } from "../lib/supabase";
+import { openai } from "../lib/openai";
+import axios from "axios";
 
 const router = Router();
 
@@ -65,7 +67,6 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   const outfitId = req.params.id;
 
-  // Fetch the outfit
   const { data: outfit, error: outfitErr } = await supabaseService
     .from("outfits")
     .select("id,name,last_worn,worn_count")
@@ -73,13 +74,12 @@ router.get("/:id", async (req, res) => {
     .single();
 
   if (outfitErr) {
-    if (outfitErr.code === "PGRST116" /* no rows */) {
+    if (outfitErr.code === "PGRST116") {
       return res.status(404).json({ error: "Outfit not found" });
     }
     return res.status(500).json({ error: outfitErr.message });
   }
 
-  // JOIN
   const { data: joins, error: joinErr } = await supabaseService
     .from("outfit_combination_items")
     .select("id, combination_id, item_id, category")
@@ -92,7 +92,6 @@ router.get("/:id", async (req, res) => {
     return res.json({ ...outfit, items: [] });
   }
 
-  // 3) Fetch the actual closet items in one query
   const { data: items, error: itemsErr } = await supabaseService
     .from("closet_items")
     .select(
@@ -102,8 +101,6 @@ router.get("/:id", async (req, res) => {
 
   if (itemsErr) return res.status(500).json({ error: itemsErr.message });
 
-  // Join the data together based on the category
-  // Currently the only categoies for clothing are shirt, pants, outerwear
   const byId = new Map((items ?? []).map((i) => [i.id, i]));
   const merged = (joins ?? [])
     .map((j) => ({
@@ -111,13 +108,8 @@ router.get("/:id", async (req, res) => {
       closet_item: byId.get(j.item_id) || null,
       link_id: j.id,
     }))
-
-    // consistent order
     .sort((a, b) => {
-      const order = { shirt: 0, pants: 1, outerwear: 2 } as Record<
-        string,
-        number
-      >;
+      const order = { shirt: 0, pants: 1, outerwear: 2 } as Record<string, number>;
       return (order[a.category] ?? 99) - (order[b.category] ?? 99);
     });
 
@@ -133,14 +125,14 @@ router.get("/:id", async (req, res) => {
 const normalizeCategory = (raw?: string | null) => {
   const c = (raw || "").trim().toLowerCase();
   if (!c) return null;
-  if (c === "jacket") return "outerwear"; // keep app vocabulary consistent
+  if (c === "jacket") return "outerwear";
   if (["shirt", "pants", "outerwear"].includes(c)) return c;
   return null;
 };
 
 type CreateOutfitBody = {
   name?: string;
-  itemIds: string[]; // closet_items.id
+  itemIds: string[];
 };
 
 router.post("/", async (req, res) => {
@@ -157,7 +149,6 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    // 1) Create outfit
     const outfitName =
       (typeof name === "string" && name.trim()) ||
       `Outfit – ${new Date().toLocaleDateString()}`;
@@ -169,31 +160,28 @@ router.post("/", async (req, res) => {
       .single();
 
     if (outfitErr || !created) {
-      return res
-        .status(500)
-        .json({ error: outfitErr?.message || "Failed to create outfit" });
+      return res.status(500).json({ error: outfitErr?.message || "Failed to create outfit" });
     }
     const newOutfitId = created.id as string;
 
-    // 2) Fetch items to verify ownership and get categories
     const { data: items, error: itemsErr } = await supabaseService
       .from("closet_items")
       .select("id, user_id, category")
       .in("id", itemIds);
 
     if (itemsErr) {
-      // cleanup created outfit
       await supabaseService.from("outfits").delete().eq("id", newOutfitId);
       return res.status(500).json({ error: itemsErr.message });
     }
 
-    // Validate ownership + presence
     const byId = new Map((items || []).map((i) => [i.id, i]));
     const invalid: string[] = [];
+
     itemIds.forEach((iid) => {
       const row = byId.get(iid);
       if (!row || row.user_id !== userId) invalid.push(iid);
     });
+
     if (invalid.length) {
       await supabaseService.from("outfits").delete().eq("id", newOutfitId);
       return res.status(403).json({
@@ -202,14 +190,12 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // 3) Build join rows using item.category from DB
     const joinRows = itemIds.map((iid) => {
       const dbCat = byId.get(iid)?.category ?? null;
-      const cat = normalizeCategory(dbCat); // may be null if unknown
+      const cat = normalizeCategory(dbCat);
       return { combination_id: newOutfitId, item_id: iid, category: cat };
     });
 
-    // 4) Insert joins
     if (joinRows.length) {
       const { error: joinErr } = await supabaseService
         .from("outfit_combination_items")
@@ -226,7 +212,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-// DELETE /api/outfits/:id   -> deletes the outfit + its linked combo items
 router.delete("/:id", async (req, res) => {
   const outfitId = req.params.id;
   const userId =
@@ -236,7 +221,6 @@ router.delete("/:id", async (req, res) => {
 
   if (!userId) return res.status(401).json({ error: "Unauthorized" });
 
-  // (Optional) Verify outfit belongs to user
   const { data: outfit, error: fetchErr } = await supabaseService
     .from("outfits")
     .select("id,user_id")
@@ -246,14 +230,12 @@ router.delete("/:id", async (req, res) => {
   if (fetchErr || !outfit) return res.status(404).json({ error: "Outfit not found" });
   if (outfit.user_id !== userId) return res.status(403).json({ error: "Forbidden" });
 
-  // 1) Delete join rows first (if you don't have ON DELETE CASCADE)
   const { error: joinErr } = await supabaseService
     .from("outfit_combination_items")
     .delete()
     .eq("combination_id", outfitId);
   if (joinErr) return res.status(500).json({ error: joinErr.message });
 
-  // 2) Delete the outfit
   const { error: outfitErr } = await supabaseService
     .from("outfits")
     .delete()
@@ -263,5 +245,63 @@ router.delete("/:id", async (req, res) => {
   return res.json({ success: true });
 });
 
+// POST /api/outfits/generate
+router.post("/generate", async (req, res) => {
+  try {
+    const { bodyImage, clothingImageUrls } = req.body;
+
+    if (!bodyImage || !clothingImageUrls || clothingImageUrls.length === 0) {
+      return res.status(400).json({ error: "Missing required images" });
+    }
+
+    // convert clothing URLs to base64
+    const clothingImagesBase64 = await Promise.all(
+      clothingImageUrls.map(async (url: string) => {
+        const response = await axios.get(url, { responseType: "arraybuffer" });
+        const base64 = Buffer.from(response.data).toString("base64");
+        return `data:image/png;base64,${base64}`;
+      })
+    );
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are an AI that combines clothing items onto a user's body image realistically.",
+        },
+        {
+          role: "user",
+          content: "Combine these clothing items onto the user's body realistically.",
+          name: "user",
+          // Not standard but passing images in message content for example
+          // In real usage, images would be handled differently
+        },
+      ],
+      functions: [],
+      function_call: "none",
+      // Pass images as additional inputs or context if supported
+      // Here we simulate sending images as part of the request
+      // This example assumes your OpenAI client supports this
+      // If not, you need to handle image generation differently
+      // This is a placeholder implementation
+      // Remove or replace with your actual OpenAI image generation logic
+      // For example, using openai.images.generate() if available
+    });
+
+    // Assuming the response contains a URL to the generated image
+    // This is a placeholder; adapt as needed for your actual API response
+    const imageUrl = response.choices?.[0]?.message?.content || null;
+
+    if (!imageUrl) {
+      throw new Error("No image URL returned from OpenAI");
+    }
+
+    return res.json({ image: imageUrl });
+  } catch (err) {
+    console.error("OpenAI Generation Error:", err);
+    return res.status(500).json({ error: "Failed to generate outfit" });
+  }
+});
 
 export default router;

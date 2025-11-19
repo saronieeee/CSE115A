@@ -12,7 +12,8 @@ import authRouter from "./routes/auth";
 
 const app = express();
 app.use(morgan("dev"));
-app.use(express.json());
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ limit: "20mb", extended: true }));
 
 const ORIGIN = (process.env.ORIGIN || "http://localhost:3000").replace(/\/+$/, "");
 app.use(
