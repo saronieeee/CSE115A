@@ -134,12 +134,6 @@ const Profile: React.FC = () => {
   }, [data?.profile?.email]);
 
   const stats = data?.stats ?? [];
-  const newItemsStat = stats.find((stat) => stat.title?.toLowerCase() === 'new items');
-  const newItemsTotal = (() => {
-    if (!newItemsStat?.value) return null;
-    const numeric = parseInt(String(newItemsStat.value).replace(/[^0-9-]/g, ''), 10);
-    return Number.isNaN(numeric) ? null : numeric;
-  })();
 
   // normalize “Total Items” card so the subtitle always reads
   const displayStats = stats.map((stat) => {
@@ -151,7 +145,6 @@ const Profile: React.FC = () => {
     }
 
     const fallbackCount = (() => {
-      if (newItemsTotal != null) return newItemsTotal;
       const match = subText.match(/-?\d+/);
       if (!match) return null;
       const parsed = parseInt(match[0], 10);
@@ -209,16 +202,26 @@ const Profile: React.FC = () => {
 
       <h3 className="section-title">Wardrobe Statistics</h3>
       <section className="stats-grid">
-        {displayStats.map((s) => (
-          <StatCard
-            key={s.title}
-            title={s.title}
-            value={s.value}
-            sub={s.sub}
-            positive={s.positive}
-            imageUrl={s.imageUrl ?? null}
-          />
-        ))}
+        {displayStats.map((s) => {
+          const isFavorites = s.title?.toLowerCase() === 'favorites';
+          const favoriteIcon = (
+            <span className="stat-heart-icon" aria-hidden>
+              ♡
+            </span>
+          );
+
+          return (
+            <StatCard
+              key={s.title}
+              title={s.title}
+              value={s.value}
+              sub={s.sub}
+              positive={s.positive}
+              imageUrl={s.imageUrl ?? null}
+              icon={isFavorites ? favoriteIcon : undefined}
+            />
+          );
+        })}
       </section>
 
     </div>
