@@ -10,12 +10,14 @@ interface ItemDetailsModalProps {
   category?: string;
   tags?: string[];
   color?: string;
+  times_worn?: number;
   onClose: () => void;
   onSave: (updatedItem: {
     title: string;
     category: string;
     tags: string[];
     color: string;
+    times_worn: number;
   }) => void;
 }
 
@@ -26,6 +28,7 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
   category: initialCategory = '',
   tags: initialTags = [],
   color: initialColor = '',
+  times_worn: initialTimesWorn = 0,
   onClose,
   onSave,
 }) => {
@@ -36,6 +39,7 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
   const [category, setCategory] = useState(normalizedInitialCategory);
   const [tags, setTags] = useState(initialTags);
   const [color, setColor] = useState(initialColor);
+  const [timesWorn, setTimesWorn] = useState<number>(initialTimesWorn);
   const [newTag, setNewTag] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -45,6 +49,7 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
       category,
       tags,
       color,
+      times_worn: timesWorn,
     });
     setIsEditing(false);
   };
@@ -150,6 +155,7 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
                 </div>
               </div>
             )}
+            {timesWorn && <p className="times-worn">Times Worn: {timesWorn}</p>}
             <button 
               className="edit-button"
               onClick={() => setIsEditing(true)}

@@ -1,0 +1,230 @@
+/*
+   SEARCH AND FILTER CONTROLS (for WardrobeFilters)
+ */
+
+/* Container: responsive, fluid, and themeable */
+.wardrobe-controls {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.75rem, 2vw, 1.25rem);
+  width: min(100%, 1200px);
+  margin: 0 auto;
+  padding: clamp(12px, 3vw, 24px);
+  border: 1px solid #E2E8F0;
+  border-radius: clamp(8px, 1.5vw, 12px);
+  background: #FFF;
+  box-sizing: border-box;
+  position: sticky;
+  top: -1px;
+  z-index: 100;
+  transition: all 0.3s ease-in-out;
+}
+
+.wardrobe-controls.is-sticky {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  border-radius: 0;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  padding: 12px 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(8px);
+}
+
+/* Desktop styles for sticky mode */
+@media (min-width: 1024px) {
+  .wardrobe-controls.is-sticky {
+    padding: 16px 32px;
+  }
+
+  .wardrobe-controls.is-sticky .category-buttons {
+    margin: 0;
+    padding-left: 16px;
+  }
+  
+  .wardrobe-controls.is-sticky .search-row {
+    max-width: 320px;
+  }
+}
+
+/* Add spacing to prevent content jump when control becomes fixed */
+.wardrobe-controls.is-sticky + * {
+  margin-top: 80px;
+}
+
+.category-buttons {
+  transition: opacity 0.3s ease, max-height 0.3s ease;
+  max-height: 100px;
+  opacity: 1;
+  overflow: hidden;
+}
+
+/* Responsive layouts based on screen size */
+@media (min-width: 480px) {
+  .wardrobe-controls {
+    padding: clamp(16px, 2.5vw, 20px);
+  }
+}
+
+@media (min-width: 640px) {
+  .wardrobe-controls {
+    flex-direction: row;
+    align-items: center;
+    gap: clamp(12px, 2vw, 20px);
+    padding: clamp(16px, 2vw, 24px);
+  }
+}
+
+@media (min-width: 1024px) {
+  .wardrobe-controls {
+    padding: clamp(20px, 2vw, 28px);
+  }
+}
+
+/* Mobile and tablet styles */
+@media (max-width: 1023px) {
+  .category-buttons {
+    margin-top: clamp(8px, 2vw, 12px);
+    justify-content: center;
+  }
+  
+  .search-row {
+    max-width: 100%;
+  }
+
+  .wardrobe-controls.is-sticky {
+    padding: 8px 16px;
+  }
+
+  .wardrobe-controls.mobile.is-sticky .category-buttons {
+    display: none;
+  }
+}
+
+/* Desktop styles */
+@media (min-width: 1024px) {
+  .wardrobe-controls.is-sticky {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .wardrobe-controls.is-sticky .category-buttons {
+    flex: 1;
+    justify-content: flex-end;
+    margin: 0;
+  }
+}
+
+.category-buttons.hide {
+  max-height: 0;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
+.wardrobe-controls.is-sticky .search-input {
+  height: 40px;
+  font-size: 14px;
+}
+
+/* Search row with improved responsive behavior */
+.search-row {
+  flex: 1 1 min(100%, 480px);
+  min-width: clamp(200px, 30vw, 320px);
+  max-width: 100%;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Enhanced search input with dynamic sizing */
+.search-input {
+  width: 100%;
+  height: clamp(42px, 5vh, 48px);
+  padding: clamp(8px, 1.5vw, 12px) clamp(12px, 2vw, 16px);
+  border: 1px solid #D7DFE9;
+  border-radius: clamp(6px, 1vw, 8px);
+  font-size: clamp(14px, 1.6vw, 16px);
+  line-height: 1.5;
+  box-sizing: border-box;
+  background: #fff;
+  color: #0f172a;
+  transition: all 200ms ease-in-out;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.search-input::placeholder {
+  color: #94A3B8;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3B82F6;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+/* Category buttons (chips) */
+.category-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.category-chip {
+  padding: 8px 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 9999px;
+  background: #F8FAFC;
+  color: #0f172a;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.category-chip:hover {
+  background: #cbdef5;
+}
+
+.category-chip.is-active {
+  background: #111827;
+  color: #ffffff;
+  border-color: #0F172B;
+}
+
+.filters-row-extra {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.favorites-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #0f172a;
+}
+
+.favorites-toggle input {
+  width: 14px;
+  height: 14px;
+}
+
+.sort-select {
+  padding: 6px 10px;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 13px;
+  cursor: pointer;
+}
