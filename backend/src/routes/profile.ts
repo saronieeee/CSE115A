@@ -53,6 +53,12 @@ const respondWithDashboard = async (res: Response, userId?: string) => {
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId);
 
+  const favoriteItemsPromise = supabaseService
+    .from("closet_items")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("favorite", true);
+
   const outfitCountPromise = supabaseService
     .from("outfits")
     .select("id", { count: "exact", head: true })
@@ -76,11 +82,13 @@ const respondWithDashboard = async (res: Response, userId?: string) => {
 
   const [
     { count: totalItems, error: totalItemsError },
+    { count: favoriteItems, error: favoriteItemsError },
     { count: outfitCount, error: outfitCountError },
     { count: itemsAddedThisMonth, error: itemsAddedThisMonthError },
     { data: mostWornRows, error: mostWornError },
   ] = await Promise.all([
     totalItemsPromise,
+    favoriteItemsPromise,
     outfitCountPromise,
     itemsAddedThisMonthPromise,
     mostWornPromise,
@@ -88,6 +96,7 @@ const respondWithDashboard = async (res: Response, userId?: string) => {
 
   const firstError =
     totalItemsError ||
+    favoriteItemsError ||
     outfitCountError ||
     itemsAddedThisMonthError ||
     mostWornError;
@@ -99,8 +108,12 @@ const respondWithDashboard = async (res: Response, userId?: string) => {
   const mostWorn: ClosetItemRow | null = Array.isArray(mostWornRows) ? mostWornRows[0] ?? null : null;
 
   const totalItemsSafe = totalItems ?? 0;
+  const favoriteItemsSafe = favoriteItems ?? 0;
   const outfitCountSafe = outfitCount ?? 0;
   const itemsAddedThisMonthSafe = itemsAddedThisMonth ?? 0;
+  const favoritePercent = totalItemsSafe
+    ? Math.round((favoriteItemsSafe / totalItemsSafe) * 100)
+    : 0;
 
   const stats = [
     {
@@ -120,10 +133,10 @@ const respondWithDashboard = async (res: Response, userId?: string) => {
       imageUrl: getItemImage(mostWorn),
     },
     {
-      title: "New Items",
-      value: String(itemsAddedThisMonthSafe),
-      sub: itemsAddedThisMonthSafe ? "Added this month" : "No new items yet",
-      positive: itemsAddedThisMonthSafe > 0,
+      title: "Favorites",
+      value: String(favoriteItemsSafe),
+      sub: `${favoritePercent}% of wardrobe`,
+      positive: favoriteItemsSafe > 0,
     },
   ];
 
