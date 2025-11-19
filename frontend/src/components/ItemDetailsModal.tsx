@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 import './ItemDetailsModal.css';
+import { CATEGORY_OPTIONS } from '../constants/categories';
 
 interface ItemDetailsModalProps {
   id: string;
@@ -28,9 +29,11 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const normalizedInitialCategory = CATEGORY_OPTIONS.some(option => option.value === initialCategory)
+    ? initialCategory
+    : '';
   const [isEditing, setIsEditing] = useState(false);
-  const [title, setTitle] = useState(initialTitle);
-  const [category, setCategory] = useState(initialCategory);
+  const [category, setCategory] = useState(normalizedInitialCategory);
   const [tags, setTags] = useState(initialTags);
   const [color, setColor] = useState(initialColor);
   const [newTag, setNewTag] = useState('');
@@ -38,7 +41,7 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
-      title,
+      title: initialTitle,
       category,
       tags,
       color,
@@ -66,30 +69,25 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
         <button className="close-button" onClick={onClose}>×</button>
         
         <div className="image-section">
-          <img src={imageUrl} alt={title} className="item-image" />
+          <img src={imageUrl} alt={initialTitle} className="item-image" />
         </div>
 
         {isEditing ? (
           <form onSubmit={handleSubmit} className="details-form">
             <div className="form-group">
-              <label htmlFor="title">Title</label>
-              <input
-                type="text"
-                id="title"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group">
               <label htmlFor="category">Category</label>
-              <input
-                type="text"
+              <select
                 id="category"
                 value={category}
                 onChange={e => setCategory(e.target.value)}
-              />
+              >
+                <option value="">Select a category</option>
+                {CATEGORY_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="form-group">
@@ -135,8 +133,12 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
           </form>
         ) : (
           <div className="details-section">
-            <h2>{title}</h2>
-            {category && <p className="category">Category: {category}</p>}
+            {category && (
+              <p className="category">
+                Category:{' '}
+                {CATEGORY_OPTIONS.find(option => option.value === category)?.label || category}
+              </p>
+            )}
             {color && <p className="color">Color: {color}</p>}
             {tags.length > 0 && (
               <div className="tags">
