@@ -36,6 +36,9 @@ export default function SignIn() {
     //    - DTI_ACCESS_TOKEN: used for Authorization: Bearer <token>
     //    - DTI_DEV_USER_ID: keeps older dev code working that still reads this
     localStorage.setItem("DTI_ACCESS_TOKEN", token);
+    if (data.user?.email || email) {
+      localStorage.setItem("DTI_USER_EMAIL", data.user?.email || email);
+    }
     if (userId) {
       localStorage.setItem("DTI_DEV_USER_ID", userId);
     }

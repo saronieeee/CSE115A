@@ -35,8 +35,20 @@
   font-size: 16px;
 }
 
+.profile-email-block {
+  margin-top: 4px;
+}
+
+.profile-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #9ca3af;
+  display: block;
+}
+
 .profile-email {
-  margin: 4px 0 8px 0;
+  margin: 2px 0 8px 0;
   color: #6b7280; /* gray-500 */
   font-size: 13px;
 }
@@ -68,7 +80,7 @@
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
   margin-bottom: 18px;
 }
@@ -95,14 +107,17 @@
 .stat-image-wrapper {
   margin-top: 8px;
   width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #eef2f6;
+  aspect-ratio: 4 / 3;
+  background: #f8fafc;
 }
 
 .stat-image {
   width: 100%;
-  height: 140px;
-  border-radius: 10px;
+  height: 100%;
   object-fit: cover;
-  border: 1px solid #eef2f6;
 }
 
 .stat-sub {
@@ -113,103 +128,6 @@
 
 .stat-positive {
   color: #10b981; /* green-500 */
-}
-
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 28px;
-}
-
-/* Forgotten Finds card */
-.forgotten-card {
-  background: #fff;
-  padding: 16px;
-  border-radius: 10px;
-  border: 1px solid #eef2f6;
-  box-shadow: 0 1px 2px rgba(16,24,40,0.03);
-  margin-bottom: 12px;
-}
-
-.forgotten-title {
-  margin: 0 0 10px 4px;
-  font-size: 14px;
-  color: #374151;
-}
-
-.forgotten-list { display: flex; flex-direction: column; gap: 10px; }
-
-.forgotten-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.forgotten-left { display:flex; align-items:center; gap:12px }
-
-.forgotten-icon { width: 44px; height: 44px; border-radius: 8px; background: #f1f5f9; display:flex; align-items:center; justify-content:center }
-
-.forgotten-info .forgotten-name { font-weight:600 }
-.forgotten-sub { font-size: 13px; color: #6b7280 }
-
-.forgotten-badge { margin-left:auto; font-size:12px; padding:6px 10px; border-radius:999px; background:#fff; border:1px solid #e6e9ef }
-
-.history-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: #fff;
-  padding: 12px;
-  border-radius: 10px;
-  border: 1px solid #eef2f6;
-}
-
-.item-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  background: #f1f5f9;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-}
-
-.history-thumb,
-.forgotten-thumb {
-  width: 44px;
-  height: 44px;
-  border-radius: 8px;
-  object-fit: cover;
-  border: 1px solid #eef2f6;
-}
-
-.item-info .item-name {
-  font-weight: 600;
-}
-
-.item-sub {
-  font-size: 12px;
-  color: #6b7280;
-}
-
-.item-badge {
-  margin-left: auto;
-  font-size: 12px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #fff;
-  border: 1px solid #e6e9ef;
-  color: #374151;
-}
-
-.notice {
-  margin-top: 6px;
-  font-size: 13px;
-  color: #6b7280;
-  text-align: left;
-  padding: 6px 4px;
 }
 
 /* make sure content isn't too wide on mobile */
