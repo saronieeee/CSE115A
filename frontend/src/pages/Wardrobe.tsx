@@ -6,6 +6,7 @@ import ItemDetails from "../components/ItemDetails";
 import CreateOutfitModal from "../components/CreateOutfitModal";
 import ItemDetailsModal from "../components/ItemDetailsModal";
 import SelectionBar from "../components/SelectionBar";
+import WardrobeFilters from "../components/WardrobeFilters";
 
 const CATEGORIES = ["Shirt", "Pants", "Outerwear", "Accessories", "Shoes"];
 
@@ -18,6 +19,7 @@ type WardrobeItemType = {
   tags?: string[];
   color?: string | null;
   occasion?: string | null;
+  wornCount?: number;
 };
 
 const Wardrobe: React.FC = () => {
@@ -26,6 +28,10 @@ const Wardrobe: React.FC = () => {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"none" | "wornAsc" | "wornDesc">(
+    "none"
+  );
 
   // UI niceties
   const [isSticky, setIsSticky] = useState(false);
@@ -33,7 +39,9 @@ const Wardrobe: React.FC = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
 
   // Details modal
-  const [selectedItem, setSelectedItem] = useState<WardrobeItemType | null>(null);
+  const [selectedItem, setSelectedItem] = useState<WardrobeItemType | null>(
+    null
+  );
   const handleViewDetails = (id: string) => {
     const item = items.find((it) => it.id === id);
     if (item) setSelectedItem(item);
@@ -42,7 +50,13 @@ const Wardrobe: React.FC = () => {
 
   const handleSaveDetails = async (
     id: string,
-    updatedDetails: { title: string; category: string; tags: string[]; color: string }
+    updatedDetails: {
+      title: string;
+      category: string;
+      tags: string[];
+      color: string;
+      times_worn: number;
+    }
   ) => {
     try {
       const token = localStorage.getItem("DTI_ACCESS_TOKEN");
@@ -71,6 +85,7 @@ const Wardrobe: React.FC = () => {
                 color: item.color,
                 imageUrl: item.image_url || item.image_path || it.imageUrl,
                 favorite: item.favorite,
+                wornCount: item.times_worn ?? it.wornCount,
               }
             : it
         )
@@ -88,7 +103,10 @@ const Wardrobe: React.FC = () => {
 
   // Sticky header & responsive checks
   const handleScroll = useCallback(() => setIsSticky(window.scrollY > 100), []);
-  const handleResize = useCallback(() => setIsMobileView(window.innerWidth < 1024), []);
+  const handleResize = useCallback(
+    () => setIsMobileView(window.innerWidth < 1024),
+    []
+  );
 
   useEffect(() => {
     window.addEventListener("scroll", handleScroll);
@@ -119,7 +137,8 @@ const Wardrobe: React.FC = () => {
         }
 
         const params = new URLSearchParams();
-        if (selectedCategories.length > 0) params.set("categories", selectedCategories.join(","));
+        if (selectedCategories.length > 0)
+          params.set("categories", selectedCategories.join(","));
         if (query.trim()) params.set("q", query.trim());
         params.set("limit", "24");
         params.set("offset", "0");
@@ -137,6 +156,7 @@ const Wardrobe: React.FC = () => {
             favorite: !!row.favorite,
             color: row.color ?? null,
             occasion: row.occasion ?? null,
+            wornCount: row.times_worn ?? 0, // 👈 safe default
           }));
 
         let res = await fetch(primaryUrl, {
@@ -162,7 +182,9 @@ const Wardrobe: React.FC = () => {
         const rows: any[] = Array.isArray(data?.items) ? data.items : [];
 
         const visibleRows =
-          currentUserId != null ? rows.filter((r) => r.user_id === currentUserId) : rows;
+          currentUserId != null
+            ? rows.filter((r) => r.user_id === currentUserId)
+            : rows;
 
         setItems(mapRows(visibleRows));
       } catch (e: any) {
@@ -179,28 +201,46 @@ const Wardrobe: React.FC = () => {
   }, [selectedCategories, query]);
 
   // Filters
-  const filteredByTitle = useMemo(() => {
+  const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((it) => (it.title || "").toLowerCase().includes(q));
-  }, [items, query]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return items.filter((item) => {
+    let list = items;
+
+    // Category + text filter
+    list = list.filter((item) => {
       if (selectedCategories.length > 0) {
         const cat = (item.category || "").toLowerCase();
         if (!cat || !selectedCategories.includes(cat)) return false;
       }
+
       if (q) {
-        const hay = `${item.title ?? ""} ${item.category ?? ""} ${item.color ?? ""} ${
-          item.occasion ?? ""
-        }`.toLowerCase();
+        const hay = `${item.title ?? ""} ${item.category ?? ""} ${
+          item.color ?? ""
+        } ${item.occasion ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
+
       return true;
     });
-  }, [items, query, selectedCategories]);
+
+    // Favorites filter
+    if (favoritesOnly) {
+      list = list.filter((item) => item.favorite);
+    }
+
+    // Sort by wornCount
+    if (sortOrder !== "none") {
+      list = [...list].sort((a, b) => {
+        const wa = a.wornCount ?? 0;
+        const wb = b.wornCount ?? 0;
+        if (sortOrder === "wornAsc") return wa - wb;
+        if (sortOrder === "wornDesc") return wb - wa;
+        return 0;
+      });
+    }
+
+    return list;
+  }, [items, query, selectedCategories, favoritesOnly, sortOrder]);
 
   // Toggle category chips
   const toggleChip = (name: string) => {
@@ -210,12 +250,16 @@ const Wardrobe: React.FC = () => {
     }
     const category = name.toLowerCase();
     setSelectedCategories((prev) =>
-      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
+      prev.includes(category)
+        ? prev.filter((c) => c !== category)
+        : [...prev, category]
     );
   };
 
   // --- Selection + outfit creation flow ---
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
+    new Set()
+  );
   const toggleSelect = (id: string) => {
     setSelectedItemIds((prev) => {
       const next = new Set(prev);
@@ -274,7 +318,11 @@ const Wardrobe: React.FC = () => {
     const snapshot = items;
     const token = localStorage.getItem("DTI_ACCESS_TOKEN");
 
-    setItems((prev) => prev.map((it) => (selectedItemIds.has(it.id) ? { ...it, favorite: true } : it)));
+    setItems((prev) =>
+      prev.map((it) =>
+        selectedItemIds.has(it.id) ? { ...it, favorite: true } : it
+      )
+    );
     try {
       const ids = Array.from(selectedItemIds);
       await Promise.all(
@@ -328,7 +376,9 @@ const Wardrobe: React.FC = () => {
     const nextFav = !current.favorite;
     const token = localStorage.getItem("DTI_ACCESS_TOKEN");
 
-    setItems((prev) => prev.map((p) => (p.id === id ? { ...p, favorite: nextFav } : p)));
+    setItems((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, favorite: nextFav } : p))
+    );
 
     try {
       const res = await fetch(`/api/clothing-items/${id}`, {
@@ -358,7 +408,9 @@ const Wardrobe: React.FC = () => {
       );
     } catch (e) {
       console.error("Favorite update failed", e);
-      setItems((prev) => prev.map((p) => (p.id === id ? { ...p, favorite: !nextFav } : p)));
+      setItems((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, favorite: !nextFav } : p))
+      );
       setErr("Couldn't save favorite. Please try again.");
     }
   };
@@ -374,7 +426,8 @@ const Wardrobe: React.FC = () => {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
-      if (!res.ok && res.status !== 204) throw new Error(`DELETE failed: ${res.status}`);
+      if (!res.ok && res.status !== 204)
+        throw new Error(`DELETE failed: ${res.status}`);
       setSelectedItemIds((prev) => {
         if (!prev.has(id)) return prev;
         const next = new Set(prev);
@@ -393,47 +446,29 @@ const Wardrobe: React.FC = () => {
     <div className={`page page-wardrobe ${isMobileView ? "is-mobile" : ""}`}>
       <header className={`wardrobe-header ${isSticky ? "is-sticky" : ""}`}>
         <h1 className="wardrobe-title">Dress To Impress</h1>
-        <button className="wardrobe-add-button" type="button" onClick={handleOpenForm}>
+        <button
+          className="wardrobe-add-button"
+          type="button"
+          onClick={handleOpenForm}
+        >
           Add Item
         </button>
       </header>
 
       {isFormOpen && <WardrobeAddItemForm onClose={handleCloseForm} />}
 
-      <section
-        className={`wardrobe-controls ${isSticky ? "is-sticky" : ""} ${isMobileView ? "mobile" : ""}`}
-      >
-        <div className="search-row">
-          <input
-            className="search-input"
-            type="text"
-            placeholder="Search clothing…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
-
-        <div className="category-buttons">
-          <button
-            className={`category-chip ${selectedCategories.length === 0 ? "is-active" : ""}`}
-            onClick={() => toggleChip("All Items")}
-          >
-            All Items
-          </button>
-          {CATEGORIES.map((c) => {
-            const isOn = selectedCategories.includes(c.toLowerCase());
-            return (
-              <button
-                key={c}
-                className={`category-chip ${isOn ? "is-active" : ""}`}
-                onClick={() => toggleChip(c)}
-              >
-                {c}
-              </button>
-            );
-          })}
-        </div>
-      </section>
+      <WardrobeFilters
+        query={query}
+        onQueryChange={setQuery}
+        selectedCategories={selectedCategories}
+        onToggleCategory={toggleChip}
+        isSticky={isSticky}
+        isMobileView={isMobileView}
+        favoritesOnly={favoritesOnly}
+        onFavoritesOnlyChange={setFavoritesOnly}
+        sortOrder={sortOrder}
+        onSortOrderChange={setSortOrder}
+      />
 
       <main className="wardrobe-content">
         {loading ? (
@@ -452,20 +487,28 @@ const Wardrobe: React.FC = () => {
           <div className="empty-card">
             <div className="empty-icon">🖼️</div>
             <h3>Your wardrobe is empty</h3>
-            <p>Start building your digital wardrobe by adding your first item.</p>
+            <p>
+              Start building your digital wardrobe by adding your first item.
+            </p>
           </div>
-        ) : (filtered.length ? filtered : filteredByTitle).length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <div className="empty-card">
             <div className="empty-icon">🔍</div>
             <h3>No items found</h3>
-            <p>Try adjusting your filters or search terms to find what you're looking for.</p>
+            <p>
+              Try adjusting your filters or search terms to find what you're
+              looking for.
+            </p>
           </div>
         ) : (
           <div className="grid">
-            {(filtered.length ? filtered : filteredByTitle).map((it) => {
+            {filteredItems.map((it) => {
               const isSelected = selectedItemIds.has(it.id);
               return (
-                <div key={it.id} className={`item-card ${isSelected ? "is-selected" : ""}`}>
+                <div
+                  key={it.id}
+                  className={`item-card ${isSelected ? "is-selected" : ""}`}
+                >
                   <button
                     type="button"
                     className="item-card__select-overlay"
@@ -541,6 +584,7 @@ const Wardrobe: React.FC = () => {
           category={selectedItem.category}
           tags={selectedItem.tags || []}
           color={selectedItem.color || ""}
+          times_worn={selectedItem.wornCount ?? 0}
           onClose={handleCloseDetails}
           onSave={(updated) => handleSaveDetails(selectedItem.id, updated)}
         />
