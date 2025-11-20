@@ -269,4 +269,102 @@ router.delete("/:id", requireUser, async (req, res) => {
   return res.json({ success: true });
 });
 
+// Mark an outfit as "worn" once, increment counters + update last_worn
+router.post("/:id/wear", requireUser, async (req, res) => {
+  const outfitId = req.params.id;
+  const user = (req as any).user;
+  const userId = user.id;
+
+  try {
+    // Fetch outfit and ensure ownership
+    const { data: outfit, error: outfitErr } = await supabaseService
+      .from("outfits")
+      .select("id, name, user_id, worn_count, last_worn")
+      .eq("id", outfitId)
+      .single();
+
+    if (outfitErr || !outfit) {
+      if (outfitErr?.code === "PGRST116") {
+        return res.status(404).json({ error: "Outfit not found" });
+      }
+      return res.status(500).json({ error: outfitErr?.message || "Failed to fetch outfit" });
+    }
+
+    if (outfit.user_id !== userId) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    // Increment outfit.worn_count + set last_worn to now
+    const newWornCount = (outfit.worn_count ?? 0) + 1;
+    const nowIso = new Date().toISOString(); // you can truncate date in UI
+
+    const { data: updatedOutfit, error: updateOutfitErr } = await supabaseService
+      .from("outfits")
+      .update({
+        worn_count: newWornCount,
+        last_worn: nowIso,
+      })
+      .eq("id", outfitId)
+      .select("id, name, user_id, worn_count, last_worn")
+      .single();
+
+    if (updateOutfitErr || !updatedOutfit) {
+      return res
+        .status(500)
+        .json({ error: updateOutfitErr?.message || "Failed to update outfit" });
+    }
+
+    // Find all closet_items in this outfit
+    const { data: joins, error: joinErr } = await supabaseService
+      .from("outfit_combination_items")
+      .select("item_id")
+      .eq("combination_id", outfitId);
+
+    if (joinErr) {
+      console.error("Failed to fetch outfit items for wear:", joinErr);
+      return res.json({ outfit: updatedOutfit });
+    }
+
+    const itemIds = (joins ?? [])
+      .map((j) => j.item_id)
+      .filter(Boolean);
+
+    if (itemIds.length) {
+      const { data: items, error: itemsErr } = await supabaseService
+        .from("closet_items")
+        .select("id, times_worn, user_id")
+        .in("id", itemIds);
+
+      if (itemsErr) {
+        console.error("Failed to fetch closet_items for wear:", itemsErr);
+        return res.json({ outfit: updatedOutfit });
+      }
+
+      // Only increment items that belong to this user
+      const updates = (items ?? [])
+        .filter((it) => it.user_id === userId)
+        .map((it) => ({
+          id: it.id,
+          times_worn: (it.times_worn ?? 0) + 1,
+        }));
+
+      if (updates.length) {
+        const { error: updateItemsErr } = await supabaseService
+          .from("closet_items")
+          .upsert(updates, { onConflict: "id" });
+
+        if (updateItemsErr) {
+          console.error("Failed to increment times_worn on closet_items:", updateItemsErr);
+        }
+      }
+    }
+
+    return res.json({ outfit: updatedOutfit });
+  } catch (e: any) {
+    console.error("Error in POST /outfits/:id/wear:", e);
+    return res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+
 export default router;
