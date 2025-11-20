@@ -1,8 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Profile.css';
 import StatCard from '../components/StatCard';
 import HistoryItem from '../components/HistoryItem';
 import ForgottenFinds from '../components/ForgottenFinds';
+import { supabase } from '../lib/supabaseClient';
 
 type Stat = { title: string; value: string; sub?: string; positive?: boolean };
 type History = { name: string; subtitle?: string; count: number; icon: 'sneaker' | 'shirt' };
@@ -42,9 +44,18 @@ const initials = (fullName: string) =>
 
 const Profile: React.FC = () => {
   const data = mockProfile;
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/signin');
+  };
 
   return (
     <div className="profile-page">
+      <button className="logout-btn" onClick={handleLogout}>
+        Log Out
+      </button>
       <section className="profile-card">
         <div className="profile-avatar">{initials(data.name)}</div>
         <div className="profile-info">

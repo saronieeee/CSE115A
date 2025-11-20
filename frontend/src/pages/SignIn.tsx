@@ -52,9 +52,6 @@ export default function SignIn() {
     <div className="signin-container">
       {/* Header / Top bar */}
       <div className="signin-header">
-        <Link to="/" className="back-link">
-          ← Back
-        </Link>
         <div className="logo-section">
           <img src="/logo.svg" alt="logo" className="logo" />
           <span className="logo-text">Dress to Impress</span>
@@ -97,21 +94,6 @@ export default function SignIn() {
             Sign In →
           </button>
         </form>
-
-        <div className="divider">
-          <span>Or continue with</span>
-        </div>
-
-        <div className="oauth-buttons">
-          <button className="oauth-btn">
-            <img src="/google.svg" alt="Google" className="oauth-icon" />
-            Google
-          </button>
-          <button className="oauth-btn">
-            <img src="/github.svg" alt="GitHub" className="oauth-icon" />
-            GitHub
-          </button>
-        </div>
 
         <p className="footer-text">
           Don’t have an account?{" "}

@@ -13,10 +13,10 @@ import BottomNav from './components/BottomNav';
 function App(): JSX.Element {
   const Layout = () => {
     const location = useLocation();
-    const hideNav = location.pathname === '/signin' || location.pathname === '/signup' || location.pathname === '/reset-password';
+    const hideNav = ['/', '/signin', '/signup', '/reset-password'].includes(location.pathname);
     return (
       <div className="app-container">
-        <main className="content">
+        <main className={`content${hideNav ? ' auth-content' : ''}`}>
           <Routes>
             {/* Show auth first */}
             <Route path="/" element={<SignIn />} />
