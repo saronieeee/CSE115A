@@ -10,7 +10,8 @@ type OutfitCardProps = {
   lastWorn?: string | null;
   thumbs: Thumb[];
   onClick?: (id: string) => void;
-  onDelete?: (id: string) => void; // if you need delete
+  onDelete?: (id: string) => void;
+  onWear?: (id: string) => void;   // 👈 NEW
 };
 
 const OutfitCard: React.FC<OutfitCardProps> = ({
@@ -21,13 +22,16 @@ const OutfitCard: React.FC<OutfitCardProps> = ({
   thumbs,
   onClick,
   onDelete,
+  onWear,
 }) => {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
     document.addEventListener("click", onDocClick);
     return () => document.removeEventListener("click", onDocClick);
@@ -81,10 +85,25 @@ const OutfitCard: React.FC<OutfitCardProps> = ({
 
         {open && (
           <div role="menu" className="outfit-menu">
+            {/* NEW: Wear action */}
+            <button
+              role="menuitem"
+              className="outfit-menu-item"
+              onClick={() => {
+                onWear?.(id);
+                setOpen(false);
+              }}
+            >
+              Wear
+            </button>
+
             <button
               role="menuitem"
               className="outfit-menu-item danger"
-              onClick={() => onDelete?.(id)}
+              onClick={() => {
+                onDelete?.(id);
+                setOpen(false);
+              }}
             >
               Delete outfit
             </button>
