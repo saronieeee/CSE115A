@@ -6,7 +6,8 @@ import { WardrobeIcon, AIIcon, OutfitsIcon, ProfileIcon } from './Icons';
 const BottomNav: React.FC = () => {
   return (
     <nav className="bottom-nav" role="navigation" aria-label="Main navigation">
-      <NavLink to="/" end className={({ isActive }: { isActive: boolean }) => (isActive ? 'nav-item active' : 'nav-item')}>
+      {/* Point Wardrobe to its dedicated route now that '/' shows auth */}
+      <NavLink to="/wardrobe" end className={({ isActive }: { isActive: boolean }) => (isActive ? 'nav-item active' : 'nav-item')}>
         <WardrobeIcon className="nav-icon" />
         <span className="nav-label">Wardrobe</span>
       </NavLink>

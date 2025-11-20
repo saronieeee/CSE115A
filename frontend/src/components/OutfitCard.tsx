@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import "./OutfitCard.css";
 
 type Thumb = { url: string; label?: string };
@@ -8,8 +8,10 @@ type OutfitCardProps = {
   name: string;
   wornCount?: number;
   lastWorn?: string | null;
-  thumbs: Thumb[]; // up to 3 images (shirt/pants/jacket)
+  thumbs: Thumb[];
   onClick?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  onWear?: (id: string) => void;   // 👈 NEW
 };
 
 const OutfitCard: React.FC<OutfitCardProps> = ({
@@ -19,7 +21,22 @@ const OutfitCard: React.FC<OutfitCardProps> = ({
   lastWorn,
   thumbs,
   onClick,
+  onDelete,
+  onWear,
 }) => {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, []);
+
   return (
     <button className="outfit-card" onClick={() => onClick?.(id)}>
       <div className="outfit-thumbs">
@@ -30,6 +47,7 @@ const OutfitCard: React.FC<OutfitCardProps> = ({
           </div>
         ))}
       </div>
+
       <div className="outfit-meta">
         <div className="outfit-name">{name}</div>
         <div className="outfit-sub">
@@ -39,7 +57,6 @@ const OutfitCard: React.FC<OutfitCardProps> = ({
               {typeof wornCount === "number" ? `Worn ${wornCount}×` : "New"}
             </span>
           </div>
-
           <div className="stat-row">
             <span className="stat-badge stat-muted">
               {lastWorn
@@ -48,6 +65,50 @@ const OutfitCard: React.FC<OutfitCardProps> = ({
             </span>
           </div>
         </div>
+      </div>
+
+      {/* three dots in bottom-left */}
+      <div
+        className="outfit-menu-anchor outfit-menu-bottom-left"
+        ref={menuRef}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          className="outfit-kebab"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label="Open outfit actions"
+          onClick={() => setOpen((v) => !v)}
+        >
+          ⋯
+        </button>
+
+        {open && (
+          <div role="menu" className="outfit-menu">
+            {/* NEW: Wear action */}
+            <button
+              role="menuitem"
+              className="outfit-menu-item"
+              onClick={() => {
+                onWear?.(id);
+                setOpen(false);
+              }}
+            >
+              Wear
+            </button>
+
+            <button
+              role="menuitem"
+              className="outfit-menu-item danger"
+              onClick={() => {
+                onDelete?.(id);
+                setOpen(false);
+              }}
+            >
+              Delete outfit
+            </button>
+          </div>
+        )}
       </div>
     </button>
   );
