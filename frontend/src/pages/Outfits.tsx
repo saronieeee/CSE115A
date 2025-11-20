@@ -57,13 +57,13 @@ const Outfits: React.FC = () => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
 
         const d = await r.json();
-        const rawOutfits: OutfitRow[] = Array.isArray(d?.outfits) ? d.outfits : [];
+        const rawOutfits: OutfitRow[] = Array.isArray(d?.outfits)
+          ? d.outfits
+          : [];
 
-        // 🔒 Frontend filter: only show outfits that belong to the current user
-        const visibleOutfits =
-          currentUserId
-            ? rawOutfits.filter((o) => o.user_id === currentUserId)
-            : rawOutfits;
+        const visibleOutfits = currentUserId
+          ? rawOutfits.filter((o) => o.user_id === currentUserId)
+          : rawOutfits;
 
         setOutfits(visibleOutfits);
       } catch (e: any) {
@@ -111,6 +111,43 @@ const Outfits: React.FC = () => {
     }
   };
 
+  const handleWearOutfit = async (outfitId: string) => {
+    const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+
+    try {
+      const res = await fetch(`/api/outfits/${outfitId}/wear`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || `HTTP ${res.status}`);
+      }
+
+      const { outfit } = await res.json();
+
+      setOutfits((prev) =>
+        prev.map((o) =>
+          o.id === outfitId
+            ? {
+                ...o,
+                worn_count: outfit.worn_count,
+                last_worn: outfit.last_worn,
+              }
+            : o
+        )
+      );
+    } catch (err) {
+      console.error("Wear outfit failed", err);
+      alert("Could not mark outfit as worn. Please try again.");
+    }
+  };
+
   return (
     <div className="page page-outfits">
       <header>
@@ -135,14 +172,13 @@ const Outfits: React.FC = () => {
         <div className="outfits-grid">
           {outfits.map((o) => (
             <OutfitCard
-              key={o.id}
               id={o.id}
               name={o.name}
               wornCount={o.worn_count ?? undefined}
-              lastWorn={o.last_worn ?? null}
+              lastWorn={o.last_worn}
               thumbs={thumbsFor(o)}
-              onClick={(id) => console.log("Open outfit", id)}
               onDelete={handleDeleteOutfit}
+              onWear={handleWearOutfit}
             />
           ))}
         </div>
