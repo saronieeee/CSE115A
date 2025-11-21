@@ -6,6 +6,17 @@
   color: #1f2937; /* gray-800 */
 }
 
+.profile-page-header {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 16px;
+}
+
+.logout-button {
+  background: #1f2937;
+  color: #fff;
+}
+
 .profile-card {
   display: flex;
   gap: 16px;
