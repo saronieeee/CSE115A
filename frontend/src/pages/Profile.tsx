@@ -10,14 +10,6 @@ type DashboardPayload = {
   stats: Stat[];
 };
 
-const initials = (fullName: string) =>
-  fullName
-    .split(' ')
-    .map((s) => s[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
-
 const Profile: React.FC = () => {
   const [data, setData] = useState<DashboardPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -180,17 +172,11 @@ const Profile: React.FC = () => {
 
   const profile = data.profile;
   const displayName = profile.name?.trim();
-  const avatarLabel = displayName || profile.email;
   const displayEmail = profile.email?.trim() || storedEmail?.trim() || 'Email unavailable';
 
   return (
     <div className="profile-page">
       <section className="profile-card">
-        {profile.avatarUrl ? (
-          <img className="profile-avatar" src={profile.avatarUrl} alt={avatarLabel} />
-        ) : (
-          <div className="profile-avatar">{initials(avatarLabel)}</div>
-        )}
         <div className="profile-info">
           {displayName && <h2 className="profile-name">{displayName}</h2>}
           <div className="profile-email-block">

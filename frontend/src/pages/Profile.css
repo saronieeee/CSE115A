@@ -17,19 +17,6 @@
   margin-bottom: 18px;
 }
 
-.profile-avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: #0b1220;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 18px;
-}
-
 .profile-info .profile-name {
   margin: 0;
   font-size: 16px;
