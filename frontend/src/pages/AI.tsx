@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CategorySlider } from '../components/CategorySlider';
 import './AI.css';
 import { Item as ClothingItem } from '../components/CategorySlider';
@@ -14,21 +14,7 @@ interface BodyProfile {
 }
 
 
-const mockItems: ClothingItem[] = [
-  // Casual items
-  { id: 't1', title: 'White Tee', image: 'https://img.sonofatailor.com/images/customizer/product/extra-heavy-cotton/ss/Black.jpg', tag: 'Shirt' },
-  { id: 'b1', title: 'Blue Jeans', image: 'https://m.media-amazon.com/images/I/715K4AhGLZS._AC_UY1000_.jpg', tag: 'Pants' },
-  // Outerwear items
-  { id: 't2', title: 'Black Shirt', image: 'https://img.sonofatailor.com/images/customizer/product/extra-heavy-cotton/ss/Black.jpg', tag: 'Shirt' },
-  { id: 't3', title: 'Denim Jacket', image: 'https://img.sonofatailor.com/images/customizer/product/extra-heavy-cotton/ss/Black.jpg', tag: 'Outerwear' },
-  { id: 't4', title: 'Leather Jacket', image: 'https://img.sonofatailor.com/images/customizer/product/extra-heavy-cotton/ss/Black.jpg', tag: 'Outerwear' },
-  { id: 't5', title: 'Leather Jacket', image: 'https://img.sonofatailor.com/images/customizer/product/extra-heavy-cotton/ss/Black.jpg', tag: 'Outerwear' },
-  { id: 't6', title: 'Leather Jacket', image: 'https://img.sonofatailor.com/images/customizer/product/extra-heavy-cotton/ss/Black.jpg', tag: 'Outerwear' },
 
-  // Formal items
-  { id: 'b2', title: 'Black Dress', image: 'https://vader-prod.s3.amazonaws.com/1651851897-best-babydoll-dresses-matteau-dress-1651851878.png', tag: 'Dress' },
-  { id: 't5', title: 'Blazer', image: 'https://img.sonofatailor.com/images/customizer/product/extra-heavy-cotton/ss/Black.jpg', tag: 'Outerwear' },
-];
 
 export const AI: React.FC = () => {
   const [step, setStep] = useState<'upload' | 'profile' | 'styling'>('upload');
@@ -36,6 +22,79 @@ export const AI: React.FC = () => {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [profile, setProfile] = useState<BodyProfile>({ heightFt: 5, heightIn: 8, bodyType: 'Athletic' });
   const [selectedItems, setSelectedItems] = useState<Array<{ id: string; title: string; image?: string }>>([]);
+  const [items, setItems] = useState<ClothingItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch all closet items from backend (similar to Wardrobe page)
+  useEffect(() => {
+    const ac = new AbortController();
+    (async () => {
+      try {
+        setLoading(true);
+
+        const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+        const currentUserId = localStorage.getItem("DTI_DEV_USER_ID");
+
+        if (!token) {
+          setItems([]);
+          setLoading(false);
+          return;
+        }
+
+        const params = new URLSearchParams();
+        params.set("limit", "100");
+        params.set("offset", "0");
+
+        const apiBase = "http://localhost:4000";
+        const primaryUrl = `${apiBase}/api/public/closet-items?${params.toString()}`;
+        const fallbackUrl = `/api/clothing-items?${params.toString()}`;
+
+        let res = await fetch(primaryUrl, {
+          credentials: "include",
+          signal: ac.signal,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!res.ok) {
+          res = await fetch(fallbackUrl, {
+            signal: ac.signal,
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        }
+
+        if (!res.ok) throw new Error(`Network error ${res.status}`);
+
+        const data = await res.json();
+        const rows: any[] = Array.isArray(data?.items) ? data.items : [];
+
+        // Filter by current user if userId is available
+        const visibleRows = currentUserId
+          ? rows.filter((r) => r.user_id === currentUserId)
+          : rows;
+
+        const fetchedItems: ClothingItem[] = visibleRows.map((item: any) => ({
+          id: item.id,
+          title: item.category || item.title || 'Item',
+          image: item.image_url || item.image_path || '',
+          tag: (item.category || 'Other').charAt(0).toUpperCase() + (item.category || 'Other').slice(1),
+        }));
+
+        setItems(fetchedItems);
+      } catch (error: any) {
+        if (error?.name !== "AbortError") {
+          console.error('Error fetching items:', error);
+          setItems([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => ac.abort();
+  }, []);
 
   function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files && e.target.files[0];
@@ -65,11 +124,11 @@ export const AI: React.FC = () => {
       }
 
       // Get the tag of the item being selected
-      const itemTag = mockItems.find(mi => mi.id === item.id)?.tag;
+      const itemTag = items.find(mi => mi.id === item.id)?.tag;
 
       // Remove any previously selected item with the same tag
       const withoutSameTag = prev.filter(p => {
-        const selectedItemTag = mockItems.find(mi => mi.id === p.id)?.tag;
+        const selectedItemTag = items.find(mi => mi.id === p.id)?.tag;
         return selectedItemTag !== itemTag;
       });
 
@@ -204,7 +263,7 @@ export const AI: React.FC = () => {
         <div className="styling-container">
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
             <div className="upload-icon">
-              <span style={{ fontSize: '32px' }}>✨</span>
+              <span style={{ fontSize: '32px' }}>👗</span>
             </div>
             <h2>Start Styling</h2>
             <p>Select items from the categories below to create your virtual outfit</p>
@@ -224,16 +283,22 @@ export const AI: React.FC = () => {
           </div>
 
           {/* Group items by tag and create a section for each tag */}
-          {Array.from(new Set(mockItems.map(item => item.tag))).map(tag => (
-            <div key={tag} className="category-section">
-              <h3>{tag}</h3>
-              <CategorySlider
-                items={mockItems.filter(item => item.tag === tag)}
-                onToggle={toggleSelectItem}
-                selectedIds={selectedItems.map(s => s.id)}
-              />
-            </div>
-          ))}
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>Loading items...</div>
+          ) : items.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>No items found in your wardrobe</div>
+          ) : (
+            Array.from(new Set(items.map(item => item.tag))).map(tag => (
+              <div key={tag} className="category-section">
+                <h3>{tag}</h3>
+                <CategorySlider
+                  items={items.filter(item => item.tag === tag)}
+                  onToggle={toggleSelectItem}
+                  selectedIds={selectedItems.map(s => s.id)}
+                />
+              </div>
+            ))
+          )}
         </div>
       )}
     </div>

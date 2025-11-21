@@ -30,7 +30,9 @@ export const CategorySlider: React.FC<Props> = ({ items, selectedIds = [], onTog
     }} className="hide-scrollbar">
       {items.map(item => (
         <div key={item.id} className="category-slider-item" style={{
+          width: '160px',
           minWidth: '160px',
+          flexShrink: 0,
           scrollSnapAlign: 'start',
           borderRadius: '8px',
           overflow: 'hidden',
@@ -41,6 +43,7 @@ export const CategorySlider: React.FC<Props> = ({ items, selectedIds = [], onTog
           transform: 'translateY(0)'
         }}>
           <div style={{ 
+            width: '160px',
             height: '180px',
             position: 'relative',
             backgroundColor: '#f8f9fa'

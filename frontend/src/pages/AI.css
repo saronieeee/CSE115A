@@ -3,14 +3,18 @@
 }
 
 .page-ai {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: 100vh;
+  padding: 24px 16px 40px;
+  box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 .upload-container {
-  max-width: 520px;
+  max-width: 700px;
   margin: 24px auto;
   border-radius: 12px;
   background: #fff;
@@ -51,7 +55,7 @@
 }
 
 .profile-container {
-  max-width: 520px;
+  max-width: 900px;
   margin: 24px auto;
   border-radius: 12px;
   background: #fff;
@@ -128,35 +132,41 @@
 }
 
 .styling-container {
-  max-width: 520px;
-  margin: 24px auto;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
   padding: 32px;
+  background: #fff;
 }
 
 .selected-items {
   display: flex;
   gap: 8px;
-  margin: 16px 0;
+  margin: 16px 0 32px 0;
   min-height: 60px;
   flex-wrap: wrap;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
 }
 
 .selected-item {
-  width: 56px;
-  height: 56px;
-  border-radius: 6px;
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #eee;
+  border: 2px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .category-section {
-  margin: 24px 0;
+  margin: 32px 0;
+  padding: 0 16px;
 }
 
 .category-section h3 {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
   color: #333;
+  font-size: 18px;
+  font-weight: 600;
 }
