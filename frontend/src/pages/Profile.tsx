@@ -1,21 +1,45 @@
-import React, { useEffect, useState } from 'react';
-import './Profile.css';
-import StatCard from '../components/StatCard';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import "./Profile.css";
+import StatCard from "../components/StatCard";
+import HistoryItem from "../components/HistoryItem";
+import ForgottenFinds from "../components/ForgottenFinds";
+import { supabase } from "../lib/supabaseClient";
 
-type Stat = { title: string; value?: string; sub?: string; positive?: boolean; imageUrl?: string | null };
-type ProfileInfo = { id: string; name?: string | null; email: string; avatarUrl?: string | null; bio?: string | null };
+type Stat = {
+  title: string;
+  value?: string;
+  sub?: string;
+  positive?: boolean;
+  imageUrl?: string | null;
+};
+
+type ProfileInfo = {
+  id: string;
+  name?: string | null;
+  email: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+};
 
 type DashboardPayload = {
   profile: ProfileInfo;
   stats: Stat[];
+  history?: {
+    name: string;
+    subtitle?: string;
+    count: number;
+    icon: "sneaker" | "shirt";
+  }[];
+  forgotten?: { id: string; name: string; subtitle?: string; count: number }[];
 };
 
 const initials = (fullName: string) =>
   fullName
-    .split(' ')
+    .split(" ")
     .map((s) => s[0])
     .slice(0, 2)
-    .join('')
+    .join("")
     .toUpperCase();
 
 const Profile: React.FC = () => {
@@ -23,28 +47,26 @@ const Profile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [storedEmail, setStoredEmail] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-  // remember email last seen
+  // restore last email
   useEffect(() => {
     try {
-      const savedEmail = localStorage.getItem('DTI_USER_EMAIL');
-      if (savedEmail) {
-        setStoredEmail(savedEmail);
-      }
-    } catch {
-      // ignore
-    }
+      const saved = localStorage.getItem("DTI_USER_EMAIL");
+      if (saved) setStoredEmail(saved);
+    } catch {}
   }, []);
 
+  // load profile from backend
   useEffect(() => {
     const controller = new AbortController();
-    // fetch the signed-in user, or fall back to dev helpers
+
     const fetchProfile = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem('DTI_ACCESS_TOKEN');
+        const token = localStorage.getItem("DTI_ACCESS_TOKEN");
         if (!token) {
-          setErr('Sign in to view your profile.');
+          setErr("sign in to view your profile.");
           setData(null);
           setLoading(false);
           return;
@@ -122,48 +144,20 @@ const Profile: React.FC = () => {
     return () => controller.abort();
   }, []);
 
+  // save latest email if found
   useEffect(() => {
     const latestEmail = data?.profile?.email?.trim();
     if (!latestEmail) return;
     try {
-      localStorage.setItem('DTI_USER_EMAIL', latestEmail);
+      localStorage.setItem("DTI_USER_EMAIL", latestEmail);
       setStoredEmail(latestEmail);
-    } catch {
-      // ignore storage errors
-    }
+    } catch {}
   }, [data?.profile?.email]);
-
-  const stats = data?.stats ?? [];
-
-  // normalize “Total Items” card so the subtitle always reads
-  const displayStats = stats.map((stat) => {
-    if (stat.title !== 'Total Items') return stat;
-
-    const subText = stat.sub ?? '';
-    if (subText.toLowerCase().includes('this month')) {
-      return stat;
-    }
-
-    const fallbackCount = (() => {
-      const match = subText.match(/-?\d+/);
-      if (!match) return null;
-      const parsed = parseInt(match[0], 10);
-      return Number.isNaN(parsed) ? null : parsed;
-    })();
-
-    const normalizedSub =
-      fallbackCount != null ? `+${fallbackCount} this month` : 'Added this month';
-
-    return {
-      ...stat,
-      sub: normalizedSub,
-    };
-  });
 
   if (loading) {
     return (
       <div className="profile-page">
-        <p>Loading your wardrobe profile…</p>
+        <p>Loading your wardrobe profile...</p>
       </div>
     );
   }
@@ -181,49 +175,74 @@ const Profile: React.FC = () => {
   const profile = data.profile;
   const displayName = profile.name?.trim();
   const avatarLabel = displayName || profile.email;
-  const displayEmail = profile.email?.trim() || storedEmail?.trim() || 'Email unavailable';
+  const displayEmail =
+    profile.email?.trim() || storedEmail?.trim() || "Email unavailable";
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate("/signin");
+  };
 
   return (
     <div className="profile-page">
+      <button className="logout-btn" onClick={handleLogout}>
+        Log Out
+      </button>
+
       <section className="profile-card">
         {profile.avatarUrl ? (
-          <img className="profile-avatar" src={profile.avatarUrl} alt={avatarLabel} />
+          <img
+            className="profile-avatar"
+            src={profile.avatarUrl}
+            alt={avatarLabel}
+          />
         ) : (
           <div className="profile-avatar">{initials(avatarLabel)}</div>
         )}
         <div className="profile-info">
           {displayName && <h2 className="profile-name">{displayName}</h2>}
-          <div className="profile-email-block">
-            <span className="profile-label">Email</span>
-            <p className="profile-email">{displayEmail}</p>
-          </div>
+          <p className="profile-email">{displayEmail}</p>
         </div>
       </section>
 
       <h3 className="section-title">Wardrobe Statistics</h3>
       <section className="stats-grid">
-        {displayStats.map((s) => {
-          const isFavorites = s.title?.toLowerCase() === 'favorites';
-          const favoriteIcon = (
-            <span className="stat-heart-icon" aria-hidden>
-              ♡
-            </span>
-          );
-
+        {(data.stats ?? []).map((s) => {
           return (
             <StatCard
               key={s.title}
               title={s.title}
-              value={s.value}
+              value={s.value ?? ""}
               sub={s.sub}
               positive={s.positive}
-              imageUrl={s.imageUrl ?? null}
-              icon={isFavorites ? favoriteIcon : undefined}
             />
           );
         })}
       </section>
 
+      {data.history && (
+        <>
+          <h3 className="section-title">Wearing History</h3>
+          <section className="history-list">
+            {data.history.map((h) => (
+              <HistoryItem
+                key={h.name}
+                name={h.name}
+                subtitle={h.subtitle}
+                count={h.count}
+                icon={h.icon}
+              />
+            ))}
+          </section>
+        </>
+      )}
+
+      <h3 className="section-title">Forgotten Finds</h3>
+      <ForgottenFinds items={data.forgotten ?? []} />
+
+      <div className="notice">
+        You have items that haven't been worn in a while
+      </div>
     </div>
   );
 };

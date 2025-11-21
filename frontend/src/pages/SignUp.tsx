@@ -28,9 +28,6 @@ export default function SignUp() {
     <div className="signup-container">
       {/* Header / Top bar */}
       <div className="signup-header">
-        <Link to="/" className="back-link">
-          ← Back
-        </Link>
         <div className="logo-section">
           <img src="/logo.svg" alt="logo" className="logo" />
           <span className="logo-text">Dress to Impress</span>
@@ -89,21 +86,6 @@ export default function SignUp() {
             Create Account →
           </button>
         </form>
-
-        <div className="divider">
-          <span>Or continue with</span>
-        </div>
-
-        <div className="oauth-buttons">
-          <button className="oauth-btn">
-            <img src="/google.svg" alt="Google" className="oauth-icon" />
-            Google
-          </button>
-          <button className="oauth-btn">
-            <img src="/github.svg" alt="GitHub" className="oauth-icon" />
-            GitHub
-          </button>
-        </div>
 
         <p className="footer-text">
           Already have an account?{" "}

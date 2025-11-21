@@ -6,6 +6,17 @@
   color: #1f2937; /* gray-800 */
 }
 
+.logout-btn {
+  background: transparent;
+  border: 1px solid #d1d5db;
+  color: #111827;
+  font-size: 0.9rem;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
 .profile-card {
   display: flex;
   gap: 16px;
