@@ -3,6 +3,7 @@ import multer from "multer";
 import { randomUUID } from "crypto";
 import path from "path";
 import { supabaseService } from "../lib/supabase";
+import { removeBackgroundFromImage, RemoveBgError } from "../lib/removeBg";
 
 const router = Router();
 
@@ -10,6 +11,7 @@ const BUCKET_NAME = process.env.IMAGE_BUCKET ?? "images";
 const ROOT_FOLDER = sanitizeFolder(process.env.IMAGE_BUCKET_ROOT ?? "bucket");
 const MAX_BYTES = Number(process.env.IMAGE_UPLOAD_MAX_BYTES ?? 5 * 1024 * 1024); // 5MB default
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+const REMOVE_BG_ENABLED = process.env.REMOVE_BG_ENABLED !== "false";
 
 // keep files entirely in RAM
 // 'storage.upload' call expects a Buffer
@@ -54,16 +56,39 @@ router.post(
       return res.status(400).json({ error: "Image file is required (field name: file)." });
     }
 
+    let uploadBuffer = file.buffer;
+    let uploadMimeType = file.mimetype;
+
+    if (REMOVE_BG_ENABLED) {
+      try {
+        const processed = await removeBackgroundFromImage({
+          buffer: file.buffer,
+          fileName: file.originalname,
+          mimeType: file.mimetype
+        });
+        uploadBuffer = processed.buffer;
+        uploadMimeType = processed.mimeType;
+      } catch (error) {
+        const status =
+          error instanceof RemoveBgError ? error.statusCode : 502;
+        const message =
+          error instanceof RemoveBgError
+            ? error.message
+            : "Failed to remove background from image.";
+        return res.status(status).json({ error: message });
+      }
+    }
+
     // unique filename in the shared bucket folder 
     // TO DO: fix image bucket folder system and separate by user id 
-    const extension = deriveExtension(file);
+    const extension = deriveExtension(file.originalname, uploadMimeType);
     const filename = `${Date.now()}-${randomUUID()}${extension}`;
     const objectPath = ROOT_FOLDER ? `${ROOT_FOLDER}/${filename}` : filename;
 
     const { error: uploadError } = await supabaseService.storage
       .from(BUCKET_NAME)
-      .upload(objectPath, file.buffer, {
-        contentType: file.mimetype,
+      .upload(objectPath, uploadBuffer, {
+        contentType: uploadMimeType,
         cacheControl: "3600",
         upsert: false
       });
@@ -89,8 +114,8 @@ router.post(
       path: objectPath,
       image_path: imagePath,
       publicUrl,
-      size: file.size,
-      contentType: file.mimetype
+      size: uploadBuffer.length,
+      contentType: uploadMimeType
     });
   }
 );
@@ -103,10 +128,10 @@ function sanitizeFolder(raw: string): string {
     .join("/");
 }
 
-function deriveExtension(file: Express.Multer.File): string {
-  const fromName = (path.extname(file.originalname || "") || "").toLowerCase();
+function deriveExtension(originalName: string | undefined | null, mimeType: string): string {
+  const fromName = (path.extname(originalName || "") || "").toLowerCase();
   if (fromName) return fromName;
-  switch (file.mimetype) {
+  switch (mimeType) {
     case "image/jpeg":
       return ".jpg";
     case "image/png":

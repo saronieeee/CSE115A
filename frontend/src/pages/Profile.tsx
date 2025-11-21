@@ -72,9 +72,11 @@ const Profile: React.FC = () => {
           return;
         }
 
-        const storedId = localStorage.getItem("DTI_DEV_USER_ID") || undefined;
-        const candidateUrls = ["/api/profile/me/dashboard"];
-        if (storedId) candidateUrls.push(`/api/profile/${storedId}/dashboard`);
+        const storedUserId = localStorage.getItem('DTI_DEV_USER_ID') || undefined;
+        const candidateUrls = ['/api/profile/me/dashboard'];
+        if (storedUserId) {
+          candidateUrls.push(`/api/profile/${storedUserId}/dashboard`);
+        }
 
         let lastError: string | null = null;
 
@@ -85,10 +87,9 @@ const Profile: React.FC = () => {
               signal: controller.signal,
             });
 
-            const contentType = res.headers.get("content-type") ?? "";
+            const contentType = res.headers.get('content-type') ?? '';
             let payload: any;
-
-            if (contentType.includes("application/json")) {
+            if (contentType.includes('application/json')) {
               payload = await res.json();
             } else {
               const text = await res.text();
@@ -100,22 +101,22 @@ const Profile: React.FC = () => {
             }
 
             if (!res.ok) {
-              const msg =
-                (payload &&
-                  typeof payload === "object" &&
-                  "error" in payload &&
-                  payload.error) ||
-                (typeof payload === "string" ? payload : null) ||
+              const message =
+                (payload && typeof payload === 'object' && 'error' in payload && (payload as any).error) ||
+                (typeof payload === 'string' ? payload : null) ||
                 `Failed to load profile (${res.status})`;
 
-              lastError = msg;
+              lastError = message;
 
-              if (res.status === 404 && url.includes("/me/")) continue;
-              throw new Error(msg);
+              if (res.status === 404 && url.includes('/me/')) {
+                continue;
+              }
+
+              throw new Error(message);
             }
 
-            if (!payload || typeof payload !== "object") {
-              lastError = "Malformed profile response";
+            if (!payload || typeof payload !== 'object') {
+              lastError = 'Malformed profile response';
               continue;
             }
 
@@ -123,16 +124,16 @@ const Profile: React.FC = () => {
             setErr(null);
             return;
           } catch (innerErr: any) {
-            if (innerErr?.name === "AbortError") return;
-            lastError = innerErr?.message || "Failed to load profile";
+            if (innerErr?.name === 'AbortError') return;
+            lastError = innerErr?.message || 'Failed to load profile';
           }
         }
 
-        throw new Error(lastError || "Failed to load profile");
+        throw new Error(lastError || 'Failed to load profile');
       } catch (error: any) {
-        if (error?.name === "AbortError") return;
-        console.error("Profile load failed", error);
-        setErr(error?.message || "Failed to load profile");
+        if (error?.name === 'AbortError') return;
+        console.error('Profile load failed', error);
+        setErr(error?.message || 'Failed to load profile');
         setData(null);
       } finally {
         setLoading(false);

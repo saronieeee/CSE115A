@@ -6,7 +6,7 @@ type ClosetItem = {
   category: string | null;
   color?: string | null;
   image_path?: string | null;
-  image_url?: string | null; // if you’ve resolved public URL
+  image_url?: string | null;
 };
 
 type OutfitItemLink = {
@@ -29,18 +29,43 @@ const Outfits: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  const userId = localStorage.getItem("DTI_DEV_USER_ID") || ""; // dev-only header to match backend
-
   useEffect(() => {
     const ac = new AbortController();
+
     (async () => {
       try {
         setLoading(true);
         setErr(null);
-        const r = await fetch("/api/outfits", { signal: ac.signal });
+
+        const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+        const currentUserId = localStorage.getItem("DTI_DEV_USER_ID"); // Supabase user.id
+
+        if (!token) {
+          setOutfits([]);
+          setErr("You must be signed in to view outfits.");
+          setLoading(false);
+          return;
+        }
+
+        const r = await fetch("/api/outfits", {
+          signal: ac.signal,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
         const d = await r.json();
-        setOutfits(Array.isArray(d?.outfits) ? d.outfits : []);
+        const rawOutfits: OutfitRow[] = Array.isArray(d?.outfits)
+          ? d.outfits
+          : [];
+
+        const visibleOutfits = currentUserId
+          ? rawOutfits.filter((o) => o.user_id === currentUserId)
+          : rawOutfits;
+
+        setOutfits(visibleOutfits);
       } catch (e: any) {
         if (e.name !== "AbortError") {
           console.error(e);
@@ -50,36 +75,76 @@ const Outfits: React.FC = () => {
         setLoading(false);
       }
     })();
+
     return () => ac.abort();
   }, []);
 
   const thumbsFor = (o: OutfitRow) => {
     const items = o.items ?? [];
     return items.slice(0, 3).map((j) => {
-      const img =
-        j.closet_item?.image_url ||
-        j.closet_item?.image_path ||
-        ""; // leave empty if none (placeholder shows via CSS if you want)
+      const img = j.closet_item?.image_url || j.closet_item?.image_path || "";
       const label = j.category || j.closet_item?.category || undefined;
       return { url: img, label };
     });
   };
 
-  // === mirror of your Wardrobe delete pattern (optimistic with rollback) ===
   const handleDeleteOutfit = async (id: string) => {
     const snapshot = outfits;
-    // optimistic remove
     setOutfits((prev) => prev.filter((o) => o.id !== id));
+
     try {
+      const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+      if (!token) throw new Error("Not signed in");
+
       const r = await fetch(`/api/outfits/${id}`, {
         method: "DELETE",
-        headers: userId ? { "x-user-id": userId } : {},
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
+
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
     } catch (e) {
       console.error("Delete outfit failed", e);
-      setOutfits(snapshot); // rollback
+      setOutfits(snapshot);
       alert("Couldn't delete outfit. Please try again.");
+    }
+  };
+
+  const handleWearOutfit = async (outfitId: string) => {
+    const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+
+    try {
+      const res = await fetch(`/api/outfits/${outfitId}/wear`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error || `HTTP ${res.status}`);
+      }
+
+      const { outfit } = await res.json();
+
+      setOutfits((prev) =>
+        prev.map((o) =>
+          o.id === outfitId
+            ? {
+                ...o,
+                worn_count: outfit.worn_count,
+                last_worn: outfit.last_worn,
+              }
+            : o
+        )
+      );
+    } catch (err) {
+      console.error("Wear outfit failed", err);
+      alert("Could not mark outfit as worn. Please try again.");
     }
   };
 
@@ -107,17 +172,13 @@ const Outfits: React.FC = () => {
         <div className="outfits-grid">
           {outfits.map((o) => (
             <OutfitCard
-              key={o.id}
               id={o.id}
               name={o.name}
               wornCount={o.worn_count ?? undefined}
-              lastWorn={o.last_worn ?? null}
+              lastWorn={o.last_worn}
               thumbs={thumbsFor(o)}
-              onClick={(id) => {
-                // optional: navigate to outfit detail
-                console.log("Open outfit", id);
-              }}
-              onDelete={handleDeleteOutfit}  // ← mirrors Wardrobe delete
+              onDelete={handleDeleteOutfit}
+              onWear={handleWearOutfit}
             />
           ))}
         </div>

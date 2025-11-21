@@ -5,45 +5,46 @@ import "./CreateOutfitModal.css";
 type Props = {
   open: boolean;
   defaultName?: string;
-  defaultUserId?: string;
   onCancel: () => void;
-  onSubmit: (values: { name: string; userId: string }) => void;
+  onSubmit: (name: string) => void;
 };
 
 const CreateOutfitModal: React.FC<Props> = ({
   open,
   defaultName = "",
-  defaultUserId = "",
   onCancel,
   onSubmit,
 }) => {
   const [name, setName] = useState(defaultName);
-  const [userId, setUserId] = useState(defaultUserId);
   const dialogRef = useRef<HTMLDivElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    // reset & focus
+
+    // reset name from default when opening
     setName(defaultName);
-    setUserId(defaultUserId);
+
     const t = setTimeout(() => nameRef.current?.focus(), 0);
+
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCancel();
     };
     document.addEventListener("keydown", onKey);
+
     return () => {
       clearTimeout(t);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open, defaultName, defaultUserId, onCancel]);
+  }, [open, defaultName, onCancel]);
 
   if (!open) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !userId.trim()) return;
-    onSubmit({ name: name.trim(), userId: userId.trim() });
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onSubmit(trimmed);
   };
 
   const body = (
@@ -56,7 +57,9 @@ const CreateOutfitModal: React.FC<Props> = ({
         onClick={(e) => e.stopPropagation()}
         ref={dialogRef}
       >
-        <h2 id="co-title" className="co-title">Save Outfit</h2>
+        <h2 id="co-title" className="co-title">
+          Save Outfit
+        </h2>
 
         <form className="co-form" onSubmit={handleSubmit}>
           <label className="co-label">
@@ -72,23 +75,19 @@ const CreateOutfitModal: React.FC<Props> = ({
             />
           </label>
 
-          <label className="co-label">
-            <span>User ID (dev)</span>
-            <input
-              className="co-input"
-              type="text"
-              value={userId}
-              placeholder="paste your user id"
-              onChange={(e) => setUserId(e.target.value)}
-              required
-            />
-          </label>
-
           <div className="co-actions">
-            <button type="button" className="co-btn co-btn-ghost" onClick={onCancel}>
+            <button
+              type="button"
+              className="co-btn co-btn-ghost"
+              onClick={onCancel}
+            >
               Cancel
             </button>
-            <button type="submit" className="co-btn co-btn-primary" disabled={!name.trim() || !userId.trim()}>
+            <button
+              type="submit"
+              className="co-btn co-btn-primary"
+              disabled={!name.trim()}
+            >
               Save Outfit
             </button>
           </div>

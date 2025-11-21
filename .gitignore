@@ -1,12 +1,8 @@
 .env
-backend/.env
-dist/
 frontend/node_modules/
+frontend/build/
+frontend/.env
 backend/node_modules/
+backend/.env
+backend/dist/
 node_modules/
-
-# Backend build output
-/backend/dist/
-
-# Ensure package-lock under backend node_modules isn't tracked
-/backend/node_modules/.package-lock.json

@@ -1,13 +1,12 @@
-import React, { ChangeEvent, FormEvent, useRef, useState } from 'react';
-import { supabase } from '../lib/supabaseClient';
-import './WardrobeAddItemForm.css';
+import React, { ChangeEvent, FormEvent, useRef, useState } from "react";
+import "./WardrobeAddItemForm.css";
+import { CATEGORY_OPTIONS } from "../constants/categories";
 
 type Props = {
   onClose: () => void;
 };
 
 type FormState = {
-  userId: string;
   category: string;
   occasion: string;
   color: string;
@@ -18,18 +17,16 @@ type FormState = {
 };
 
 const initialState: FormState = {
-  userId: '',
-  category: '',
-  occasion: '',
-  color: '',
-  imagePath: '',
-  imageUrl: '',
+  category: "",
+  occasion: "",
+  color: "",
+  imagePath: "",
+  imageUrl: "",
   favorite: false,
-  timesWorn: '',
+  timesWorn: "",
 };
 
 const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
-  // form state plus helpers to show upload status to the user
   const [formState, setFormState] = useState<FormState>(initialState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -43,7 +40,7 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
     const { name, value, type } = event.target;
     setFormState((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? (event.target as HTMLInputElement).checked : value,
+      [name]: type === "checkbox" ? (event.target as HTMLInputElement).checked : value,
     }));
   };
 
@@ -71,25 +68,26 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
 
     try {
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append("file", file);
 
-      const response = await fetch('/api/uploads/images', {
-        method: 'POST',
+      const response = await fetch("/api/uploads/images", {
+        method: "POST",
         body: formData,
-        credentials: 'include'
+        credentials: "include",
       });
 
       const payload = await response.json();
       if (!response.ok) {
-        const serverError = typeof payload?.error === 'string' ? payload.error : 'Failed to upload image.';
+        const serverError =
+          typeof payload?.error === "string" ? payload.error : "Failed to upload image.";
         throw new Error(serverError);
       }
 
-      const newPath: string = payload?.image_path || payload?.path || '';
+      const newPath: string = payload?.image_path || payload?.path || "";
       const newPublicUrl: string | null = payload?.publicUrl ?? null;
 
       if (!newPath && !newPublicUrl) {
-        throw new Error('Upload response did not include an image path.');
+        throw new Error("Upload response did not include an image path.");
       }
 
       setFormState((prev) => ({
@@ -97,7 +95,7 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
         imagePath: newPath || prev.imagePath,
         imageUrl: newPublicUrl || prev.imageUrl,
       }));
-      console.log('Image uploaded', {
+      console.log("Image uploaded", {
         path: newPath,
         publicUrl: newPublicUrl,
         size: payload?.size,
@@ -106,15 +104,17 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
       setImagePreviewUrl(newPublicUrl);
     } catch (uploadErr) {
       const message =
-        uploadErr instanceof Error ? uploadErr.message : 'Something went wrong while uploading the image.';
+        uploadErr instanceof Error
+          ? uploadErr.message
+          : "Something went wrong while uploading the image.";
       setImageUploadError(message);
     } finally {
       setIsUploadingImage(false);
       // allow uploading the same file again later
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
-      fileInput.value = '';
+      fileInput.value = "";
     }
   };
 
@@ -122,34 +122,38 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
   const handleRemoveImage = () => {
     setFormState((prev) => ({
       ...prev,
-      imagePath: '',
-      imageUrl: '',
+      imagePath: "",
+      imageUrl: "",
     }));
     setImagePreviewUrl(null);
     setImageUploadError(null);
     setError(null);
     setSuccess(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
-  // synchronous validation first, then persist via Supabase
+  // synchronous validation first, then persist via backend API (which infers user_id from JWT)
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     setSuccess(null);
 
     if (isUploadingImage) {
-      setError('Please wait for the image upload to finish.');
+      setError("Please wait for the image upload to finish.");
+      return;
+    }
+
+    const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+    if (!token) {
+      setError("You must be signed in to add items.");
       return;
     }
 
     const trimmedCategory = formState.category.trim();
-    const trimmedUserId = formState.userId.trim();
-
-    if (!trimmedUserId || !trimmedCategory) {
-      setError('User ID and category are required.');
+    if (!trimmedCategory) {
+      setError("Category is required.");
       return;
     }
 
@@ -158,12 +162,12 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
       : null;
 
     if (timesWornValue !== null && Number.isNaN(timesWornValue)) {
-      setError('Times worn must be a number.');
+      setError("Times worn must be a number.");
       return;
     }
 
     const insertPayload = {
-      user_id: trimmedUserId,
+      // user_id is NOT sent; backend uses req.user.id via requireUser
       category: trimmedCategory,
       occasion: formState.occasion.trim() || null,
       color: formState.color.trim() || null,
@@ -175,14 +179,28 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
 
     setIsSubmitting(true);
     try {
-      // insert directly through Supabase TODO: funnel through express api
-      const { error: insertError } = await supabase.from('closet_items').insert([insertPayload]);
-      if (insertError) {
-        throw new Error(insertError.message);
+      const response = await fetch("/api/clothing-items", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // 🔐 supplies JWT for requireUser
+        },
+        body: JSON.stringify(insertPayload),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const serverError =
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Something went wrong while adding the item.";
+        throw new Error(serverError);
       }
-      setSuccess('Item added to your wardrobe!');
+
+      setSuccess("Item added to your wardrobe!");
       setFormState(initialState);
-      console.log('Wardrobe item saved', {
+      console.log("Wardrobe item saved", {
         imagePath: insertPayload.image_path,
         imageUrl: insertPayload.image_url,
       });
@@ -190,7 +208,7 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
       setImageUploadError(null);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Something went wrong while adding the item.';
+        err instanceof Error ? err.message : "Something went wrong while adding the item.";
       setError(message);
     } finally {
       setIsSubmitting(false);
@@ -211,18 +229,6 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
       <h2 className="wardrobe-section-heading">Add a new item</h2>
       <form className="wardrobe-add-form" onSubmit={handleSubmit}>
         <div className="wardrobe-form-row">
-          <label htmlFor="userId">User ID *</label>
-          <input
-            id="userId"
-            name="userId"
-            value={formState.userId}
-            onChange={handleChange}
-            placeholder="Enter your Supabase user ID"
-            required
-          />
-        </div>
-
-        <div className="wardrobe-form-row">
           <label htmlFor="category">Category *</label>
           <select
             id="category"
@@ -234,11 +240,11 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
             <option value="" disabled>
               Select a category
             </option>
-            <option value="shirt">Shirt</option>
-            <option value="pants">Pants</option>
-            <option value="outerwear">Outerwear</option>
-            <option value="accessories">Accessories</option>
-            <option value="shoes">Shoes</option>
+            {CATEGORY_OPTIONS.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -323,8 +329,12 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
         {success && <p className="wardrobe-form-success">{success}</p>}
 
         <div className="wardrobe-form-actions">
-          <button className="wardrobe-submit-button" type="submit" disabled={isSubmitting || isUploadingImage}>
-            {isSubmitting ? 'Saving...' : 'Save item'}
+          <button
+            className="wardrobe-submit-button"
+            type="submit"
+            disabled={isSubmitting || isUploadingImage}
+          >
+            {isSubmitting ? "Saving..." : "Save item"}
           </button>
         </div>
       </form>
