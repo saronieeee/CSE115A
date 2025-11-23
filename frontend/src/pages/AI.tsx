@@ -21,9 +21,12 @@ export const AI: React.FC = () => {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [profile, setProfile] = useState<BodyProfile>({ heightFt: 5, heightIn: 8, bodyType: 'Athletic' });
-  const [selectedItems, setSelectedItems] = useState<Array<{ id: string; title: string; image?: string }>>([]);
+  const [selectedItems, setSelectedItems] = useState<ClothingItem[]>([]);
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiImageUrl, setAiImageUrl] = useState<string | null>(null);
 
   // Fetch all closet items from backend (similar to Wardrobe page)
   useEffect(() => {
@@ -81,6 +84,8 @@ export const AI: React.FC = () => {
           title: item.category || item.title || 'Item',
           image: item.image_url || item.image_path || '',
           tag: (item.category || 'Other').charAt(0).toUpperCase() + (item.category || 'Other').slice(1),
+          category: item.category,
+          color: item.color,
         }));
 
         setItems(fetchedItems);
@@ -135,6 +140,80 @@ export const AI: React.FC = () => {
       // Add the new item
       return [...withoutSameTag, item];
     });
+  }
+
+  async function generateOutfit() {
+    try {
+      setAiError(null);
+      setAiImageUrl(null);
+
+      if (!selectedItems.length) {
+        setAiError('Select at least one item to guide the AI outfit.');
+        return;
+      }
+
+      const token = localStorage.getItem('DTI_ACCESS_TOKEN');
+      if (!token) {
+        setAiError('Please sign in to generate outfits.');
+        return;
+      }
+
+      setAiLoading(true);
+
+      const payloadItems = selectedItems.map((sel) => ({
+        id: sel.id,
+        title: sel.title,
+        category: sel.tag?.toLowerCase?.() || sel.category,
+        color: sel.color,
+        image: sel.image,
+      }));
+
+      const candidateUrls = [
+        'http://localhost:4000/api/ai/outfit',
+        '/api/ai/outfit',
+      ];
+
+      let lastErr: string | null = null;
+
+      for (const url of candidateUrls) {
+        try {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ items: payloadItems }),
+          });
+
+          const contentType = res.headers.get('content-type') || '';
+          const body = contentType.includes('application/json') ? await res.json() : await res.text();
+
+          if (!res.ok) {
+            const message = (body && typeof body === 'object' && (body as any).error) || body || 'Failed to generate outfit';
+            lastErr = typeof message === 'string' ? message : 'Failed to generate outfit';
+            continue;
+          }
+
+          const imageUrl = (body as any)?.imageUrl;
+          if (!imageUrl) {
+            lastErr = 'AI did not return an image URL.';
+            continue;
+          }
+
+          setAiImageUrl(imageUrl);
+          setAiError(null);
+          return;
+        } catch (err: any) {
+          if (err?.name === 'AbortError') return;
+          lastErr = err?.message || 'Failed to generate outfit';
+        }
+      }
+
+      setAiError(lastErr || 'Failed to generate outfit');
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   return (
@@ -280,6 +359,30 @@ export const AI: React.FC = () => {
                 )}
               </div>
             ))}
+          </div>
+
+          <div className="ai-generator-card">
+            <div className="ai-generator-header">
+              <div>
+                <h3 style={{ margin: 0 }}>AI Outfit Generator</h3>
+              </div>
+              <button className="btn btn-primary" onClick={generateOutfit} disabled={aiLoading}>
+                {aiLoading ? 'Generating…' : 'Generate outfit'}
+              </button>
+            </div>
+
+            <div className="ai-meta">
+              <span>{selectedItems.length} item{selectedItems.length === 1 ? '' : 's'} selected</span>
+              <span>OpenAI image generation • 1024x1024</span>
+            </div>
+
+            {aiError && <div className="ai-error">{aiError}</div>}
+
+            {aiImageUrl && (
+              <div className="ai-result">
+                <img src={aiImageUrl} alt="AI generated outfit" />
+              </div>
+            )}
           </div>
 
           {/* Group items by tag and create a section for each tag */}

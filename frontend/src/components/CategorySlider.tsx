@@ -6,6 +6,8 @@ export interface Item {
   title: string;
   image: string;
   tag: string;
+  category?: string;
+  color?: string;
 };
 
 type Props = {
