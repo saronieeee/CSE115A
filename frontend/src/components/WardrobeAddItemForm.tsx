@@ -206,6 +206,8 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
       });
       setImagePreviewUrl(null);
       setImageUploadError(null);
+      // reload so latest items are visible immediately
+      window.location.reload();
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Something went wrong while adding the item.";
