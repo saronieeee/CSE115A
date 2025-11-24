@@ -10,6 +10,7 @@ import closetRouter from "./routes/closet_items";
 import uploadRouter from "./routes/uploads";
 import authRouter from "./routes/auth";
 import profileRouter from "./routes/profile";
+import bodyProfileRouter from "./routes/body_profile";
 
 const app = express();
 app.use(morgan("dev"));
@@ -41,6 +42,7 @@ app.use("/api/uploads", uploadRouter);
 app.use("/api", closetRouter);    
 app.use("/api/auth", authRouter);
 app.use("/api/profile", profileRouter);
+app.use("/api/body-profile", bodyProfileRouter);
 
 const port = Number(process.env.PORT) || 4000;
 const host = process.env.HOST || "0.0.0.0";
