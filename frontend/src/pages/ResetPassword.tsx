@@ -30,7 +30,6 @@ export default function ResetPassword() {
       <div className="signin-header">
         <Link to="/" className="back-link">← Back</Link>
         <div className="logo-section">
-          <img src="/logo.svg" alt="logo" className="logo" />
           <span className="logo-text">Dress to Impress</span>
         </div>
       </div>

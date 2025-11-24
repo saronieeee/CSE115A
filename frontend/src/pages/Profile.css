@@ -6,15 +6,31 @@
   color: #1f2937; /* gray-800 */
 }
 
+.profile-page-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.logout-button {
+  background: #1f2937;
+  color: #fff;
+}
+
 .profile-card {
   display: flex;
   gap: 16px;
-  align-items: center;
+  align-items: flex-start;
+  justify-content: space-between;
   background: #fff;
   padding: 18px;
   border-radius: 10px;
   box-shadow: 0 1px 4px rgba(16,24,40,0.06);
   margin-bottom: 18px;
+}
+
+.profile-info {
+  flex: 1;
 }
 
 .profile-info .profile-name {
@@ -35,14 +51,13 @@
 }
 
 .profile-email {
-  margin: 2px 0 8px 0;
+  margin: 2px 0;
   color: #6b7280; /* gray-500 */
   font-size: 13px;
 }
 
-.profile-actions {
-  display: flex;
-  gap: 8px;
+.logout-button {
+  white-space: nowrap;
 }
 
 .btn {
@@ -144,5 +159,6 @@
 /* make sure content isn't too wide on mobile */
 @media (max-width: 420px) {
   .profile-page { padding: 14px; }
+  .profile-card { flex-direction: column; align-items: flex-start; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
 }

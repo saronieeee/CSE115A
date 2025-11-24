@@ -1,7 +1,7 @@
 // src/pages/SignIn.tsx
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import "./SignIn.css";
+import "./Auth.css";
 import { supabase } from "../lib/supabaseClient";
 
 export default function SignIn() {
@@ -84,73 +84,51 @@ export default function SignIn() {
   };
 
   return (
-    <div className="signin-container">
-      {/* Header / Top bar */}
-      <div className="signin-header">
-        <Link to="/" className="back-link">
-          ← Back
-        </Link>
+    <div className="auth-container auth-glow">
+      <div className="auth-header">
         <div className="logo-section">
-          <img src="/logo.svg" alt="logo" className="logo" />
           <span className="logo-text">Dress to Impress</span>
         </div>
       </div>
-
-      {/* Main form */}
-      <div className="signin-card">
-        <h1 className="title">Welcome back</h1>
-        <p className="subtitle">Sign in to access your digital wardrobe</p>
+      <div className="auth-card">
+        <h1 className="auth-title">Welcome back</h1>
+        <p className="auth-subtitle">Sign in to access your digital wardrobe</p>
 
         <form onSubmit={handleSubmit}>
-          <label className="label">Email</label>
+          <label className="auth-label">Email</label>
           <input
             type="email"
-            className="input"
+            className="auth-input"
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
           />
 
-          <div className="password-row">
-            <label className="label">Password</label>
-            <button type="button" className="forgot-btn" onClick={handleForgot}>
+          <div className="auth-password-row">
+            <label className="auth-label">Password</label>
+            <button type="button" className="auth-forgot-btn" onClick={handleForgot}>
               Forgot password?
             </button>
           </div>
 
           <input
             type="password"
-            className="input"
+            className="auth-input"
             placeholder="Enter your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
 
-          <button type="submit" className="signin-btn">
+          <button type="submit" className="auth-btn">
             Sign In →
           </button>
         </form>
 
-        <div className="divider">
-          <span>Or continue with</span>
-        </div>
-
-        <div className="oauth-buttons">
-          <button className="oauth-btn">
-            <img src="/google.svg" alt="Google" className="oauth-icon" />
-            Google
-          </button>
-          <button className="oauth-btn">
-            <img src="/github.svg" alt="GitHub" className="oauth-icon" />
-            GitHub
-          </button>
-        </div>
-
-        <p className="footer-text">
-          Don’t have an account?{" "}
-          <Link to="/signup" className="signup-link">
+        <p className="auth-footer-text">
+          Don't have an account?{" "}
+          <Link to="/signup" className="auth-link">
             Sign up
           </Link>
         </p>
