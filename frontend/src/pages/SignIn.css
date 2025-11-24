@@ -7,7 +7,7 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 2rem 1.25rem;
+  padding: 2rem 1rem;
   overflow: hidden;
   font-family: system-ui, -apple-system, sans-serif;
 }
@@ -17,30 +17,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
 }
 
-.logo-section {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.logo {
-  width: 24px;
-  height: 24px;
+.signin-card {
+  width: 100%;
+  max-width: 340px;
+  text-align: left;
+  padding: 0 1.25rem 1rem;
+  box-sizing: border-box;
+  margin: 0 auto;
 }
 
 .logo-text {
   font-weight: 600;
   color: #111827;
-}
-
-.signin-card {
-  width: 100%;
-  max-width: 400px;
-  text-align: left;
-  padding-bottom: 0.5rem;
 }
 
 .title {

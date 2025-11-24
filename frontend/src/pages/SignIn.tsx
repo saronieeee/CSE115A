@@ -85,15 +85,9 @@ export default function SignIn() {
 
   return (
     <div className="signin-container">
-      {/* Header / Top bar */}
       <div className="signin-header">
-        <div className="logo-section">
-          <img src="/logo.svg" alt="logo" className="logo" />
-          <span className="logo-text">Dress to Impress</span>
-        </div>
+        <span className="logo-text">Dress to Impress</span>
       </div>
-
-      {/* Main form */}
       <div className="signin-card">
         <h1 className="title">Welcome back</h1>
         <p className="subtitle">Sign in to access your digital wardrobe</p>
