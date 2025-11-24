@@ -13,6 +13,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   min-height: 100vh;
+  background:
+    radial-gradient(circle at top, #a9cbff 0%, rgba(248, 250, 252, 0.85) 45%, rgba(248, 250, 252, 0));
+  background-attachment: fixed;
 }
 
 html {
