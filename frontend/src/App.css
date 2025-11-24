@@ -50,6 +50,12 @@
   flex: 1 0 auto;
 }
 
+.auth-content {
+  padding-bottom: 0;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
 .page {
   padding: 24px;
 }

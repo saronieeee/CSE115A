@@ -2,10 +2,13 @@
 .signin-container {
   background-color: #f8fafc;
   min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   align-items: center;
-  padding: 2.5rem 1.25rem;
+  padding: 2rem 1.25rem;
+  overflow: hidden;
   font-family: system-ui, -apple-system, sans-serif;
 }
 
@@ -13,20 +16,14 @@
   width: 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
   margin-bottom: 2.5rem;
-}
-
-.back-link {
-  color: #6b7280;
-  font-size: 0.9rem;
-  text-decoration: none;
 }
 
 .logo-section {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin: 0 auto;
 }
 
 .logo {
@@ -43,6 +40,7 @@
   width: 100%;
   max-width: 400px;
   text-align: left;
+  padding-bottom: 0.5rem;
 }
 
 .title {
@@ -107,49 +105,6 @@
 
 .signin-btn:hover {
   background-color: #152a4d;
-}
-
-.divider {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #6b7280;
-  font-size: 0.8rem;
-  margin: 1.75rem 0;
-  position: relative;
-}
-
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1;
-  border-bottom: 1px solid #e5e7eb;
-  margin: 0 0.75rem;
-}
-
-.oauth-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-.oauth-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  background-color: #fff;
-  padding: 0.75rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.oauth-icon {
-  width: 18px;
-  height: 18px;
 }
 
 .footer-text {
