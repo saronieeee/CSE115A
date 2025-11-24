@@ -30,9 +30,7 @@ export const AI: React.FC = () => {
   const [savedProfile, setSavedProfile] = useState<SavedBodyProfile | null>(
     null
   );
-  const [selectedItems, setSelectedItems] = useState<
-    Array<{ id: string; title: string; image?: string }>
-  >([]);
+  const [selectedItems, setSelectedItems] = useState<ClothingItem[]>([]);
   const [items, setItems] = useState<ClothingItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
