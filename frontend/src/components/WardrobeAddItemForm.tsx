@@ -35,6 +35,8 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const hasUploadedImage =
+    formState.imagePath.trim().length > 0 || formState.imageUrl.trim().length > 0;
 
   const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = event.target;
@@ -157,6 +159,11 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
       return;
     }
 
+    if (!hasUploadedImage) {
+      setError("Please upload an image before saving an item.");
+      return;
+    }
+
     const timesWornValue = formState.timesWorn.trim()
       ? Number(formState.timesWorn.trim())
       : null;
@@ -273,7 +280,7 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
         </div>
 
         <div className="wardrobe-form-row">
-          <label htmlFor="imageUpload">Image upload</label>
+          <label htmlFor="imageUpload">Image upload *</label>
           <input
             id="imageUpload"
             type="file"
@@ -282,6 +289,9 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
             disabled={isSubmitting || isUploadingImage}
             ref={fileInputRef}
           />
+          {!hasUploadedImage && !imagePreviewUrl && (
+            <p className="wardrobe-form-hint">Upload an image to add this item.</p>
+          )}
           {isUploadingImage && <p className="wardrobe-form-hint">Uploading image…</p>}
           {imageUploadError && <p className="wardrobe-form-error">{imageUploadError}</p>}
           {imagePreviewUrl && (
@@ -334,7 +344,7 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
           <button
             className="wardrobe-submit-button"
             type="submit"
-            disabled={isSubmitting || isUploadingImage}
+            disabled={isSubmitting || isUploadingImage || !hasUploadedImage}
           >
             {isSubmitting ? "Saving..." : "Save item"}
           </button>
