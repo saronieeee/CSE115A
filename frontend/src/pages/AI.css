@@ -7,6 +7,8 @@
   flex-direction: column;
   align-items: center;
   width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
   min-height: 100vh;
   padding: 24px 0 80px 0;
   box-sizing: border-box;
@@ -154,6 +156,7 @@
   padding: 16px 24px;
   background: #fff;
   box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .selected-items {
