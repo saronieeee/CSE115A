@@ -1,6 +1,8 @@
+// src/routes/ai.ts
 import { Router } from "express";
 import fetch from "node-fetch";
 import { requireUser } from "../lib/requireUser";
+import { supabaseService } from "../lib/supabase";
 
 const router = Router();
 
@@ -16,10 +18,18 @@ type OutfitRequestBody = {
   }>;
 };
 
+type DescribeClosetItemBody = {
+  itemId?: string;
+};
+
 const OPENAI_URL = "https://api.openai.com/v1/images/generations";
 const DEV_PROMPT = "Generate a basic human wearing these items.";
 const VISION_URL = "https://api.openai.com/v1/chat/completions";
 
+/**
+ * POST /api/ai/outfit
+ * Existing outfit image generation route (unchanged)
+ */
 router.post("/outfit", requireUser, async (req, res) => {
   const { prompt, items }: OutfitRequestBody = req.body ?? {};
   const user = (req as any).user;
@@ -171,6 +181,169 @@ router.post("/outfit", requireUser, async (req, res) => {
   } catch (e: any) {
     console.error("/api/ai/outfit failed", e);
     return res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+/**
+ * POST /api/ai/describe-closet-item
+ *
+ * Body: { itemId: string }
+ * - Looks up closet_items row for this user
+ * - Calls OpenAI vision/chat on the image_url (+ metadata)
+ * - Writes ai_generated_description back into closet_items
+ * - Returns the updated row
+ */
+router.post("/describe-closet-item", requireUser, async (req, res) => {
+  const { itemId }: DescribeClosetItemBody = req.body ?? {};
+  const user = (req as any).user;
+
+  if (!itemId) {
+    return res.status(400).json({ error: "Missing 'itemId' in request body" });
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "OpenAI is not configured" });
+  }
+
+  try {
+    // 1️⃣ Fetch the item and ensure it belongs to the current user
+    const { data: item, error: fetchErr } = await supabaseService
+      .from("closet_items")
+      .select(
+        "id, user_id, image_url, category, color, occasion, ai_generated_description"
+      )
+      .eq("id", itemId)
+      .eq("user_id", user.id)
+      .single();
+
+    if (fetchErr) {
+      console.error("[describe-closet-item] fetchErr", fetchErr);
+      return res
+        .status(404)
+        .json({ error: "Closet item not found for this user." });
+    }
+
+    if (!item.image_url) {
+      return res
+        .status(400)
+        .json({ error: "Closet item has no image_url to describe." });
+    }
+
+    // If it already has a description, you *could* short-circuit here:
+    // if (item.ai_generated_description) {
+    //   return res.json({ item });
+    // }
+
+    const metaParts: string[] = [];
+    if (item.category) metaParts.push(`Category: ${item.category}`);
+    if (item.color) metaParts.push(`Color: ${item.color}`);
+    if (item.occasion) metaParts.push(`Occasion: ${item.occasion}`);
+    const metaString =
+      metaParts.length > 0
+        ? metaParts.join(", ")
+        : "No extra metadata provided.";
+
+    const visionPayload = {
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a fashion assistant. You are given ONE clothing item image plus some text metadata. " +
+            "Your job is to: (1) describe the garment in 1–2 concise sentences (type, color/pattern, fit, style vibe), " +
+            "(2) recommend the primary occasion to wear it (one of: casual, smart casual, business, formal, party), " +
+            "(3) recommend the appropriate weather or season (e.g. warm weather, cold weather, all-season, rainy). " +
+            "Do NOT mention that you are looking at an image. Respond ONLY in the following JSON format:\n" +
+            "{\n" +
+            '  "description": "<short natural language description>",\n' +
+            '  "occasion": "<one of: casual | smart casual | business | formal | party>",\n' +
+            '  "weather": "<short phrase like: warm weather | cold weather | all-season | rainy>"\n' +
+            "}",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text:
+                "Describe this single clothing item for a virtual wardrobe and follow the required JSON format. " +
+                `Metadata: ${metaString}`,
+            },
+            {
+              type: "image_url",
+              image_url: { url: item.image_url },
+            },
+          ],
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.4,
+    };
+
+    const openAiRes = await fetch(VISION_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(visionPayload),
+    });
+
+    const rawText = await openAiRes.text();
+    let payload: any;
+    try {
+      payload = JSON.parse(rawText);
+    } catch {
+      payload = rawText;
+    }
+
+    if (!openAiRes.ok) {
+      console.error("[describe-closet-item] OpenAI error", payload);
+      const errMsg =
+        (payload &&
+          typeof payload === "object" &&
+          (payload as any).error?.message) ||
+        openAiRes.statusText ||
+        "Failed to generate AI description";
+      return res.status(openAiRes.status || 500).json({ error: errMsg });
+    }
+
+    const description = payload?.choices?.[0]?.message?.content?.trim() || null;
+
+    if (!description) {
+      return res
+        .status(502)
+        .json({ error: "OpenAI returned an empty description." });
+    }
+
+    // 3️⃣ Save ai_generated_description back into the closet_items row
+    const { data: updated, error: updateErr } = await supabaseService
+      .from("closet_items")
+      .update({
+        ai_generated_description: description,
+        // you could also set ai_last_updated: new Date().toISOString()
+      })
+      .eq("id", item.id)
+      .eq("user_id", user.id)
+      .select(
+        "id, user_id, image_url, category, color, occasion, ai_generated_description"
+      )
+      .single();
+
+    if (updateErr) {
+      console.error("[describe-closet-item] updateErr", updateErr);
+      return res
+        .status(500)
+        .json({ error: "Failed to save AI description to database." });
+    }
+
+    return res.json({ item: updated });
+  } catch (e: any) {
+    console.error("[describe-closet-item] unexpected error", e);
+    return res
+      .status(500)
+      .json({ error: e?.message || "Server error generating description." });
   }
 });
 
