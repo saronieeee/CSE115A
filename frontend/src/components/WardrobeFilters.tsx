@@ -2,7 +2,7 @@
 import React from "react";
 import "./WardrobeFilters.css";
 
-const CATEGORIES = ["Shirt", "Pants", "Outerwear", "Accessories", "Shoes"];
+const CATEGORIES = ["Shirt", "Pants", "Outerwear", "Accessories", "Shoes", "Dresses", "Skirts", "Shorts"];
 
 interface WardrobeFiltersProps {
   query: string;

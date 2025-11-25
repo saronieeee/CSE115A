@@ -6,29 +6,21 @@ type SelectionBarProps = {
   count: number;
   onClear: () => void;
   onCreate: () => void;
-  onVirtualTryOn?: () => void;
-  onAddFavorites?: () => void;
-  onDelete?: () => void;
-  disabled?: boolean;
-  /** distance from the very bottom of the viewport so we float above your footer */
-  bottomOffset?: number; // px; default 80
+  invalidMessage?: string | null;   // ⭐ NEW
+  bottomOffset?: number;
 };
 
 const SelectionBar: React.FC<SelectionBarProps> = ({
   count,
   onClear,
   onCreate,
-  onVirtualTryOn,
-  onAddFavorites,
-  onDelete,
-  disabled = false,
+  invalidMessage = null,
   bottomOffset = 80,
 }) => {
   const content = (
     <div
       className="selection-fab-wrap"
       style={{
-        // floating wrapper; pointer-events off so it doesn't block the page
         position: "fixed",
         left: "50%",
         transform: "translateX(-50%)",
@@ -37,49 +29,23 @@ const SelectionBar: React.FC<SelectionBarProps> = ({
         pointerEvents: "none",
       }}
       aria-hidden={false}
-      role="region"
-      aria-label="Selection actions"
     >
-      <div className="selection-fab" role="group" aria-label="Outfit actions">
+      <div className="selection-fab">
         <span className="selection-fab__count">{count} selected</span>
 
         <div className="selection-fab__actions">
-          <button
-            type="button"
-            className="selection-fab__button"
-            onClick={onVirtualTryOn}
-            aria-label="Virtual try-on"
-          >
-            <span className="selection-fab__label">Try-On</span>
-          </button>
 
+          {/* Save Outfit */}
           <button
             type="button"
-            className="selection-fab__button"
+            className="selection-fab__button save"
             onClick={onCreate}
             aria-label="Create outfit"
           >
             <span className="selection-fab__label">Save Outfit</span>
           </button>
 
-          <button
-            type="button"
-            className="selection-fab__button"
-            onClick={onAddFavorites}
-            aria-label="Add to favorites"
-          >
-            <span className="selection-fab__label">Favorite</span>
-          </button>
-
-          <button
-            type="button"
-            className="selection-fab__button selection-fab__destructive"
-            onClick={onDelete}
-            aria-label="Delete selection"
-          >
-            <span className="selection-fab__label">Delete</span>
-          </button>
-
+          {/* Clear */}
           <button
             type="button"
             className="selection-fab__button selection-fab__clear"
@@ -91,6 +57,12 @@ const SelectionBar: React.FC<SelectionBarProps> = ({
           </button>
         </div>
       </div>
+      
+      {invalidMessage && (
+        <div className="selection-fab__error">
+          {invalidMessage}
+        </div>
+      )}
     </div>
   );
 
