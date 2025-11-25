@@ -28,6 +28,8 @@ export const CategorySlider: React.FC<Props> = ({
       style={{
         display: "flex",
         gap: 12,
+        width: "100%",
+        maxWidth: "100%",
         overflowX: "auto",
         padding: "8px 0",
         scrollSnapType: "x mandatory",
