@@ -7,8 +7,10 @@ import CreateOutfitModal from "../components/CreateOutfitModal";
 import ItemDetailsModal from "../components/ItemDetailsModal";
 import SelectionBar from "../components/SelectionBar";
 import WardrobeFilters from "../components/WardrobeFilters";
+import { validateOutfitSelection } from "../utils/outfitRules";
 
-const CATEGORIES = ["Shirt", "Pants", "Outerwear", "Accessories", "Shoes"];
+
+const CATEGORIES = ["Shirt", "Pants", "Outerwear", "Accessories", "Shoes", "Dresses", "Skirts", "Shorts"];
 
 type WardrobeItemType = {
   id: string;
@@ -200,6 +202,7 @@ const Wardrobe: React.FC = () => {
     return () => ac.abort();
   }, [selectedCategories, query]);
 
+
   // Filters
   const filteredItems = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -260,6 +263,17 @@ const Wardrobe: React.FC = () => {
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
     new Set()
   );
+
+  const selectedItems = useMemo(
+    () => items.filter((it) => selectedItemIds.has(it.id)),
+    [items, selectedItemIds]
+  );
+
+  const outfitValidation = useMemo(
+    () => validateOutfitSelection(selectedItems),
+    [selectedItems]
+  );
+
   const toggleSelect = (id: string) => {
     setSelectedItemIds((prev) => {
       const next = new Set(prev);
@@ -273,6 +287,13 @@ const Wardrobe: React.FC = () => {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const handleCreateOutfit = () => {
     if (selectedItemIds.size === 0) return;
+    if (!outfitValidation.isValid) {
+      alert(
+        outfitValidation.message ??
+          "This selection can't be saved as an outfit yet."
+      );
+      return;
+    }
     setIsCreateOpen(true);
   };
 
@@ -304,69 +325,6 @@ const Wardrobe: React.FC = () => {
       clearSelection();
     } catch (e: any) {
       alert(`Failed to save outfit: ${e.message}`);
-    }
-  };
-
-  // Bulk actions for selections
-  const handleVirtualTryOn = () => {
-    const ids = Array.from(selectedItemIds);
-    console.log("Virtual Try-On for:", ids);
-  };
-
-  const handleAddSelectionToFavorites = async () => {
-    if (selectedItemIds.size === 0) return;
-    const snapshot = items;
-    const token = localStorage.getItem("DTI_ACCESS_TOKEN");
-
-    setItems((prev) =>
-      prev.map((it) =>
-        selectedItemIds.has(it.id) ? { ...it, favorite: true } : it
-      )
-    );
-    try {
-      const ids = Array.from(selectedItemIds);
-      await Promise.all(
-        ids.map((id) =>
-          fetch(`/api/clothing-items/${id}`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({ favorite: true }),
-          })
-        )
-      );
-    } catch (e) {
-      console.error("Batch favorite failed", e);
-      setItems(snapshot);
-      setErr("Failed to add favorites.");
-    }
-  };
-
-  const handleDeleteSelection = async () => {
-    if (selectedItemIds.size === 0) return;
-    const snapshot = items;
-    const ids = Array.from(selectedItemIds);
-    const token = localStorage.getItem("DTI_ACCESS_TOKEN");
-
-    setItems((prev) => prev.filter((it) => !selectedItemIds.has(it.id)));
-    setSelectedItemIds(new Set());
-    try {
-      await Promise.all(
-        ids.map((id) =>
-          fetch(`/api/clothing-items/${id}`, {
-            method: "DELETE",
-            headers: {
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-          })
-        )
-      );
-    } catch (e) {
-      console.error("Batch delete failed", e);
-      setItems(snapshot);
-      setErr("Failed to delete selection.");
     }
   };
 
@@ -556,15 +514,19 @@ const Wardrobe: React.FC = () => {
       </main>
 
       {selectedItemIds.size > 0 && (
+        <>
         <SelectionBar
           count={selectedItemIds.size}
           onClear={clearSelection}
           onCreate={handleCreateOutfit}
-          onVirtualTryOn={handleVirtualTryOn}
-          onAddFavorites={handleAddSelectionToFavorites}
-          onDelete={handleDeleteSelection}
-          disabled={false}
         />
+        {/* ⭐ Optional: show live validation hint below the bar */}
+          {!outfitValidation.isValid && outfitValidation.message && (
+            <div className="selection-error">
+              {outfitValidation.message}
+            </div>
+          )}
+        </>
       )}
 
       <CreateOutfitModal
