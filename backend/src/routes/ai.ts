@@ -5,7 +5,6 @@ import FormData from "form-data";
 import { Blob } from "buffer";
 import { supabaseService } from "../lib/supabase";
 import { requireUser } from "../lib/requireUser";
-import { supabaseService } from "../lib/supabase";
 
 const router = Router();
 const AI_OUTFITS_BUCKET = "ai_outfits";
@@ -31,9 +30,6 @@ type OutfitRequestBody = {
   }>;
 };
 
-type DescribeClosetItemBody = {
-  itemId?: string;
-};
 
 type DescribeClosetItemBody = {
   itemId?: string;
