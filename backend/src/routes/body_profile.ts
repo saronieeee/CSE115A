@@ -1,4 +1,4 @@
-// src/routes/bodyProfile.ts
+// src/routes/body_profile.ts
 import { Router } from "express";
 import multer from "multer";
 import { supabaseService } from "../lib/supabase";
@@ -17,11 +17,20 @@ type BodyProfilePayload = {
   shoesSize?: string;
 };
 
+// small helper for extensions
+function extForMime(mime: string): string {
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  if (mime === "image/gif") return "gif";
+  // default jpg for jpeg/anything else
+  return "jpg";
+}
+
 // POST /api/body-profile
 router.post(
   "/",
   requireUser,
-  upload.single("photo"), // field name "photo" must match what you send from frontend
+  upload.single("photo"),
   async (req, res) => {
     const user = (req as any).user;
     const userId = user.id as string;
@@ -34,40 +43,60 @@ router.post(
 
       const profile: BodyProfilePayload = JSON.parse(rawProfile);
 
-      // optional photo
+      // 1️⃣ Load existing profile so we know old image_path
+      let oldImagePath: string | null = null;
+      const { data: existing, error: existingErr } = await supabaseService
+        .from("body_profiles")
+        .select("image_path")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!existingErr && existing) {
+        oldImagePath = (existing as any).image_path ?? null;
+      }
+
+      // 2️⃣ Handle optional photo upload
       const file = req.file;
-      let image_path: string | null = null;
+      let image_path: string | null = oldImagePath;
 
-if (file) {
-  const mimeToExt: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/gif": "gif",
-  };
+      if (file) {
+        const ext = extForMime(file.mimetype);
+        const newPath = `body-profiles/${userId}.${ext}`;
 
-  const ext = mimeToExt[file.mimetype] || "jpg";
+        // If path changed (e.g. jpg → webp), delete old image first
+        if (oldImagePath && oldImagePath !== newPath) {
+          const { error: removeErr } = await supabaseService.storage
+            .from("body-profiles")
+            .remove([oldImagePath]);
 
-  // 👇 define `path` here – this is what TS is complaining about
-  const path = `body-profiles/${userId}-${Date.now()}.${ext}`;
+          if (removeErr) {
+            console.warn(
+              "Failed to remove old body profile image:",
+              oldImagePath,
+              removeErr
+            );
+            // not fatal – we keep going
+          }
+        }
 
-  const { error: uploadErr } = await supabaseService.storage
-    .from("body-profiles")
-    .upload(path, file.buffer, {
-      contentType: file.mimetype,
-      upsert: true,
-    });
+        const { error: uploadErr } = await supabaseService.storage
+          .from("body-profiles")
+          .upload(newPath, file.buffer, {
+            contentType: file.mimetype,
+            upsert: true, // overwrite if same path
+          });
 
-  if (uploadErr) {
-    console.error("Upload body profile image failed:", uploadErr);
-    return res.status(500).json({ error: "Failed to upload profile image" });
-  }
+        if (uploadErr) {
+          console.error("Upload body profile image failed:", uploadErr);
+          return res
+            .status(500)
+            .json({ error: "Failed to upload profile image" });
+        }
 
-  image_path = path;
-}
+        image_path = newPath;
+      }
 
-
-      // upsert profile (one per user)
+      // 3️⃣ Upsert profile (one per user)
       const { data, error: upsertErr } = await supabaseService
         .from("body_profiles")
         .upsert(
@@ -82,7 +111,7 @@ if (file) {
             bottoms_size: profile.bottomsSize ?? null,
             shoes_size: profile.shoesSize ?? null,
           },
-          { onConflict: "user_id" } // unique index we created
+          { onConflict: "user_id" }
         )
         .select("*")
         .single();
@@ -92,7 +121,31 @@ if (file) {
         return res.status(500).json({ error: "Failed to save body profile" });
       }
 
-      return res.json({ profile: data });
+      // 4️⃣ Build public URL for the saved image so frontend can refetch
+      let imageUrl: string | null = null;
+      if (data.image_path) {
+        const { data: pub } = supabaseService.storage
+          .from("body-profiles")
+          .getPublicUrl(data.image_path);
+        imageUrl = pub?.publicUrl ?? null;
+      }
+
+      return res.json({
+        profile: {
+          id: data.id,
+          heightFt: data.height_ft,
+          heightIn: data.height_in,
+          weight: data.weight,
+          bodyType: data.body_type,
+          topsSize: data.tops_size,
+          bottomsSize: data.bottoms_size,
+          shoesSize: data.shoes_size,
+          imageUrl,
+          imagePath: data.image_path,
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+        },
+      });
     } catch (e: any) {
       console.error("Error in POST /api/body-profile:", e);
       return res.status(500).json({ error: e?.message || "Server error" });
