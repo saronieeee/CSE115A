@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import "./OutfitCard.css";
 
-type Thumb = { url: string; label?: string };
+type Thumb = { url: string; label?: string; isCounter?: boolean };
 
 type OutfitCardProps = {
   id: string;
@@ -41,9 +41,17 @@ const OutfitCard: React.FC<OutfitCardProps> = ({
     <button className="outfit-card" onClick={() => onClick?.(id)}>
       <div className="outfit-thumbs">
         {thumbs.slice(0, 3).map((t, i) => (
-          <div key={i} className="outfit-thumb">
-            <img src={t.url} alt={t.label || "item"} />
-            {t.label && <span className="thumb-badge">{t.label}</span>}
+          <div key={i} className={`outfit-thumb ${t.isCounter ? 'outfit-thumb-counter' : ''}`}>
+            {t.isCounter ? (
+              <div className="thumb-counter">
+                <span className="counter-text">{t.label}</span>
+              </div>
+            ) : (
+              <>
+                <img src={t.url} alt={t.label || "item"} />
+                {t.label && <span className="thumb-badge">{t.label}</span>}
+              </>
+            )}
           </div>
         ))}
       </div>
