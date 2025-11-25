@@ -1,5 +1,8 @@
 import { Router } from "express";
 import fetch from "node-fetch";
+import FormData from "form-data";
+import { Blob } from "buffer";
+import { supabaseService } from "../lib/supabase";
 import { requireUser } from "../lib/requireUser";
 
 const router = Router();
@@ -16,13 +19,67 @@ type OutfitRequestBody = {
   }>;
 };
 
-const OPENAI_URL = "https://api.openai.com/v1/images/generations";
+const OPENAI_EDIT_URL = "https://api.openai.com/v1/images/edits";
 const DEV_PROMPT = "Generate a basic human wearing these items.";
 const VISION_URL = "https://api.openai.com/v1/chat/completions";
+const BODY_PROFILE_BUCKET = "body-profiles";
+
+type BodyImageAsset = {
+  buffer: Buffer;
+  mimeType: string;
+  filename: string;
+};
+
+function mimeTypeFromPath(path: string | null): string {
+  if (!path) return "image/jpeg";
+  const lc = path.toLowerCase();
+  if (lc.endsWith(".png")) return "image/png";
+  if (lc.endsWith(".webp")) return "image/webp";
+  if (lc.endsWith(".gif")) return "image/gif";
+  return "image/jpeg";
+}
+
+async function loadBodyImageForUser(userId: string): Promise<BodyImageAsset | null> {
+  const { data, error } = await supabaseService
+    .from("body_profiles")
+    .select("image_path")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error && error.code !== "PGRST116") {
+    console.error("[AI outfit] failed to fetch body profile row", error);
+    throw new Error("Failed to load body profile");
+  }
+
+  const imagePath = data?.image_path ?? null;
+  if (!imagePath) {
+    return null;
+  }
+
+  const { data: downloaded, error: downloadErr } = await supabaseService.storage
+    .from(BODY_PROFILE_BUCKET)
+    .download(imagePath);
+
+  if (downloadErr || !downloaded) {
+    console.error("[AI outfit] failed to download body profile image", downloadErr);
+    throw new Error("Failed to download body photo");
+  }
+
+  const blob = downloaded as Blob;
+  const arrayBuffer = await blob.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  return {
+    buffer,
+    mimeType: (blob as any)?.type || mimeTypeFromPath(imagePath),
+    filename: imagePath.split("/").pop() || "body-profile.jpg",
+  };
+}
 
 router.post("/outfit", requireUser, async (req, res) => {
   const { prompt, items }: OutfitRequestBody = req.body ?? {};
   const user = (req as any).user;
+  const userId = user?.id as string;
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -30,6 +87,20 @@ router.post("/outfit", requireUser, async (req, res) => {
   }
 
   const selectedItems = Array.isArray(items) ? items.slice(0, 8) : [];
+
+  let bodyImage: BodyImageAsset | null = null;
+  try {
+    bodyImage = await loadBodyImageForUser(userId);
+  } catch (err) {
+    console.error("[AI outfit] failed to load body profile", err);
+    return res.status(500).json({ error: "Could not load your body profile photo" });
+  }
+
+  if (!bodyImage) {
+    return res.status(400).json({
+      error: "Upload a body profile photo before generating outfits.",
+    });
+  }
 
   // ask a vision model to describe items
   let visionDescriptions: string | null = null;
@@ -105,10 +176,14 @@ router.post("/outfit", requireUser, async (req, res) => {
   const userPrompt = (prompt || DEV_PROMPT).trim();
   const combinedPrompt = [
     DEV_PROMPT,
-    "Create a single full-body fashion photo on a neutral studio background.",
+    "Create a single full-body photo using the provided body reference image as the base person.",
+    "Keep the same face, pose, and proportions from the input photo—only change hair styling as needed and dress the person in new clothes.",
+    "Frame the composition so the subject is fully visible from head to toe with footwear included—avoid cropping off the top of the head or the bottom of the shoes.",
+    "Leave a small neutral background margin (about 5-10% of the canvas) above the head and below the shoes so nothing touches the frame edges.",
+    "Make the final image a 1024×1024 PNG suitable for download without further resizing.",
     "Blend these wardrobe pieces into the look:",
-    visionDescriptions ? `From images: ${visionDescriptions}` : itemSummary || "use generic staple wardrobe pieces",
-    "Keep lighting flattering, no text or watermarks.",
+    visionDescriptions ? `From wardrobe images: ${visionDescriptions}` : itemSummary || "use generic staple wardrobe pieces",
+    "Ensure edits are photorealistic, seamless, and free of artifacts or text.",
     `Instruction: ${userPrompt}`,
   ]
     .filter(Boolean)
@@ -116,7 +191,7 @@ router.post("/outfit", requireUser, async (req, res) => {
 
   try {
     console.log("[AI outfit] sending to OpenAI", {
-      userId: user?.id,
+      userId,
       itemCount: selectedItems.length,
       itemSummary,
       imageUrls: usableImages,
@@ -124,21 +199,28 @@ router.post("/outfit", requireUser, async (req, res) => {
       visionPreview: visionDescriptions?.slice(0, 160),
       visionFull: visionDescriptions,
       promptPreview: combinedPrompt.slice(0, 200),
+      editingFromBodyPhoto: true,
+      bodyPhotoBytes: bodyImage.buffer.length,
     });
 
-    const openAiRes = await fetch(OPENAI_URL, {
+    const form = new FormData();
+    form.append("model", "gpt-image-1");
+    form.append("prompt", combinedPrompt);
+    form.append("size", "1024x1024");
+    form.append("n", "1");
+    form.append("image", bodyImage.buffer, {
+      filename: bodyImage.filename,
+      contentType: bodyImage.mimeType,
+      knownLength: bodyImage.buffer.length,
+    });
+
+    const openAiRes = await fetch(OPENAI_EDIT_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
+        ...form.getHeaders(),
       },
-      body: JSON.stringify({
-        model: "gpt-image-1",
-        prompt: combinedPrompt,
-        size: "1024x1024",
-        n: 1,
-        user: user?.id,
-      }),
+      body: form as any,
     });
 
     const text = await openAiRes.text();

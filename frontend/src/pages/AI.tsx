@@ -325,6 +325,11 @@ async function onSaveProfile() {
         return;
       }
 
+      if (!savedProfile?.imageUrl) {
+        setAiError('Upload and save a body profile photo before generating outfits.');
+        return;
+      }
+
       const token = localStorage.getItem('DTI_ACCESS_TOKEN');
       if (!token) {
         setAiError('Please sign in to generate outfits.');
@@ -450,7 +455,12 @@ async function onSaveProfile() {
                 <img
                   src={currentImage}
                   alt="Body profile"
-                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    background: "#fff",
+                  }}
                 />
               ) : (
                 <div style={{ color: "#aaa" }}>Body Profile Preview</div>
@@ -660,16 +670,39 @@ async function onSaveProfile() {
               </button>
             </div>
 
-            <div className="ai-meta">
-              <span>{selectedItems.length} item{selectedItems.length === 1 ? '' : 's'} selected</span>
-              <span>OpenAI image generation • 1024x1024</span>
-            </div>
+      <div className="ai-meta">
+        <span>{selectedItems.length} item{selectedItems.length === 1 ? '' : 's'} selected</span>
+        <span>OpenAI image editing • 1024x1024</span>
+      </div>
 
             {aiError && <div className="ai-error">{aiError}</div>}
 
             {aiImageUrl && (
               <div className="ai-result">
-                <img src={aiImageUrl} alt="AI generated outfit" />
+                <div
+                  style={{
+                    width: "100%",
+                    maxWidth: 640,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12,
+                    alignItems: "stretch",
+                  }}
+                >
+                  <img
+                    src={aiImageUrl}
+                    alt="AI generated outfit"
+                    style={{ width: "100%", height: "auto", objectFit: "contain" }}
+                  />
+                  <a
+                    className="btn"
+                    href={aiImageUrl}
+                    download="ai-outfit.png"
+                    style={{ textDecoration: "none", textAlign: "center" }}
+                  >
+                    Download outfit
+                  </a>
+                </div>
               </div>
             )}
           </div>
