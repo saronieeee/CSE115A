@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import OutfitCard from "../components/OutfitCard";
+import OutfitDetailsModal from "../components/OutfitDetailsModal";
+import "./Outfits.css";
 
 type ClosetItem = {
   id: string;
@@ -28,6 +30,7 @@ const Outfits: React.FC = () => {
   const [outfits, setOutfits] = useState<OutfitRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [selectedOutfit, setSelectedOutfit] = useState<OutfitRow | null>(null);
 
   useEffect(() => {
     const ac = new AbortController();
@@ -81,11 +84,21 @@ const Outfits: React.FC = () => {
 
   const thumbsFor = (o: OutfitRow) => {
     const items = o.items ?? [];
-    return items.slice(0, 3).map((j) => {
+    const hasMore = items.length > 3;
+    const displayItems = items.slice(0, hasMore ? 2 : 3);
+    
+    const thumbs = displayItems.map((j) => {
       const img = j.closet_item?.image_url || j.closet_item?.image_path || "";
       const label = j.category || j.closet_item?.category || undefined;
       return { url: img, label };
     });
+
+    if (hasMore) {
+      const remaining = items.length - 2;
+      thumbs.push({ url: '', label: `+${remaining}`, isCounter: true } as any);
+    }
+
+    return thumbs;
   };
 
   const handleDeleteOutfit = async (id: string) => {
@@ -150,10 +163,6 @@ const Outfits: React.FC = () => {
 
   return (
     <div className="page page-outfits">
-      <header>
-        <h1>Outfits</h1>
-      </header>
-
       {loading ? (
         <p>Loading…</p>
       ) : err ? (
@@ -172,17 +181,31 @@ const Outfits: React.FC = () => {
         <div className="outfits-grid">
           {outfits.map((o) => (
             <OutfitCard
+              key={o.id}
               id={o.id}
               name={o.name}
               wornCount={o.worn_count ?? undefined}
               lastWorn={o.last_worn}
               thumbs={thumbsFor(o)}
+              onClick={(id) => {
+                const outfit = outfits.find((outfit) => outfit.id === id);
+                if (outfit) setSelectedOutfit(outfit);
+              }}
               onDelete={handleDeleteOutfit}
               onWear={handleWearOutfit}
             />
           ))}
         </div>
       )}
+
+      <OutfitDetailsModal
+        isOpen={!!selectedOutfit}
+        onClose={() => setSelectedOutfit(null)}
+        outfitName={selectedOutfit?.name || ''}
+        items={selectedOutfit?.items || []}
+        wornCount={selectedOutfit?.worn_count ?? undefined}
+        lastWorn={selectedOutfit?.last_worn}
+      />
     </div>
   );
 };
