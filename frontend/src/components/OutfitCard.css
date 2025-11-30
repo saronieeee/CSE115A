@@ -223,3 +223,19 @@
   }
 }
 
+
+/* ---------- AI outfit card tweaks ---------- */
+
+.ai-outfit-card {
+  /* optional: slight visual difference so you can tell it's AI if you want */
+  /* box-shadow: 0 6px 22px rgba(79, 70, 229, 0.18); */
+}
+
+/* Make the single AI thumb span the whole row */
+.ai-outfit-thumb-wrapper {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.ai-outfit-thumb {
+  grid-column: 1 / -1;
+}
