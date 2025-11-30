@@ -6,6 +6,16 @@ import { supabaseService } from "../lib/supabase";
 import { requireUser } from "../lib/requireUser";
 
 const router = Router();
+const AI_OUTFITS_BUCKET = "ai_outfits";
+
+async function fetchImageAsBuffer(url: string): Promise<Buffer> {
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    throw new Error(`Failed to download image from OpenAI URL: ${resp.status}`);
+  }
+  const arrayBuffer = await resp.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
 
 type OutfitRequestBody = {
   prompt?: string;
@@ -39,7 +49,9 @@ function mimeTypeFromPath(path: string | null): string {
   return "image/jpeg";
 }
 
-async function loadBodyImageForUser(userId: string): Promise<BodyImageAsset | null> {
+async function loadBodyImageForUser(
+  userId: string
+): Promise<BodyImageAsset | null> {
   const { data, error } = await supabaseService
     .from("body_profiles")
     .select("image_path")
@@ -61,7 +73,10 @@ async function loadBodyImageForUser(userId: string): Promise<BodyImageAsset | nu
     .download(imagePath);
 
   if (downloadErr || !downloaded) {
-    console.error("[AI outfit] failed to download body profile image", downloadErr);
+    console.error(
+      "[AI outfit] failed to download body profile image",
+      downloadErr
+    );
     throw new Error("Failed to download body photo");
   }
 
@@ -93,7 +108,9 @@ router.post("/outfit", requireUser, async (req, res) => {
     bodyImage = await loadBodyImageForUser(userId);
   } catch (err) {
     console.error("[AI outfit] failed to load body profile", err);
-    return res.status(500).json({ error: "Could not load your body profile photo" });
+    return res
+      .status(500)
+      .json({ error: "Could not load your body profile photo" });
   }
 
   if (!bodyImage) {
@@ -121,8 +138,14 @@ router.post("/outfit", requireUser, async (req, res) => {
           {
             role: "user",
             content: [
-              { type: "text", text: "Describe these garments for outfit generation." },
-              ...usableImages.map((url) => ({ type: "image_url", image_url: { url } })),
+              {
+                type: "text",
+                text: "Describe these garments for outfit generation.",
+              },
+              ...usableImages.map((url) => ({
+                type: "image_url",
+                image_url: { url },
+              })),
             ],
           },
         ],
@@ -182,7 +205,9 @@ router.post("/outfit", requireUser, async (req, res) => {
     "Leave a small neutral background margin (about 5-10% of the canvas) above the head and below the shoes so nothing touches the frame edges.",
     "Make the final image a 1024×1024 PNG suitable for download without further resizing.",
     "Blend these wardrobe pieces into the look:",
-    visionDescriptions ? `From wardrobe images: ${visionDescriptions}` : itemSummary || "use generic staple wardrobe pieces",
+    visionDescriptions
+      ? `From wardrobe images: ${visionDescriptions}`
+      : itemSummary || "use generic staple wardrobe pieces",
     "Ensure edits are photorealistic, seamless, and free of artifacts or text.",
     `Instruction: ${userPrompt}`,
   ]
@@ -233,26 +258,158 @@ router.post("/outfit", requireUser, async (req, res) => {
 
     if (!openAiRes.ok) {
       const err =
-        (payload && typeof payload === "object" && (payload as any).error?.message) ||
+        (payload &&
+          typeof payload === "object" &&
+          (payload as any).error?.message) ||
         openAiRes.statusText ||
         "Failed to generate image";
       return res.status(openAiRes.status || 500).json({ error: err });
     }
 
     const first = (payload as any)?.data?.[0];
-    const imageUrl = first?.url;
+    const imageUrlFromOpenAI = first?.url;
     const b64 = first?.b64_json;
 
-    if (!imageUrl && !b64) {
+    if (!imageUrlFromOpenAI && !b64) {
       console.error("OpenAI response missing image data", payload);
       return res.status(502).json({ error: "OpenAI response missing image" });
     }
 
-    const finalUrl = imageUrl || (b64 ? `data:image/png;base64,${b64}` : null);
-    return res.json({ imageUrl: finalUrl, promptUsed: combinedPrompt });
+    let imageBuffer: Buffer;
+
+    if (b64) {
+      imageBuffer = Buffer.from(b64, "base64");
+    } else {
+      imageBuffer = await fetchImageAsBuffer(imageUrlFromOpenAI);
+    }
+
+    const fileName = `user-${userId}/${Date.now()}.png`;
+
+    const { data: uploadData, error: uploadErr } = await supabaseService.storage
+      .from(AI_OUTFITS_BUCKET)
+      .upload(fileName, imageBuffer, {
+        contentType: "image/png",
+        upsert: false,
+      });
+
+    if (uploadErr) {
+      console.error("[AI outfit] storage upload error:", uploadErr);
+      return res
+        .status(500)
+        .json({ error: "Failed to upload AI outfit image." });
+    }
+
+    const { data: publicUrlData } = supabaseService.storage
+      .from(AI_OUTFITS_BUCKET)
+      .getPublicUrl(fileName);
+
+    const finalImageUrl = publicUrlData.publicUrl;
+
+    let bodyProfileSnapshot: any = null;
+    try {
+      const { data: bodyProfileRow, error: bodyProfileErr } =
+        await supabaseService
+          .from("body_profiles")
+          .select("*")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+      if (bodyProfileErr && bodyProfileErr.code !== "PGRST116") {
+        console.error(
+          "[AI outfit] failed to fetch body profile snapshot",
+          bodyProfileErr
+        );
+      } else {
+        bodyProfileSnapshot = bodyProfileRow || null;
+      }
+    } catch (err) {
+      console.error("[AI outfit] error while snapshotting body profile", err);
+    }
+
+    const { data: outfitRow, error: insertErr } = await supabaseService
+      .from("ai_outfits")
+      .insert({
+        user_id: userId,
+        image_path: fileName,
+        image_url: finalImageUrl,
+        body_profile: bodyProfileSnapshot,
+        items: selectedItems, // snapshot of what was used
+      })
+      .select()
+      .single();
+
+    if (insertErr || !outfitRow) {
+      console.error("[AI outfit] DB insert error:", insertErr);
+      return res
+        .status(500)
+        .json({ error: "Failed to create AI outfit record." });
+    }
+
+    const joinRows =
+      selectedItems
+        ?.filter((it) => it.id)
+        .map((it) => ({
+          ai_outfit_id: outfitRow.id,
+          closet_item_id: it.id,
+          role: (it.category || it.tag || null) as string | null,
+        })) ?? [];
+
+    if (joinRows.length > 0) {
+      const { error: joinErr } = await supabaseService
+        .from("ai_outfit_items")
+        .insert(joinRows);
+
+      if (joinErr) {
+        console.error(
+          "[AI outfit] join insert error (ai_outfit_items):",
+          joinErr
+        );
+        // not fatal; we still return the outfit
+      }
+    }
+
+    return res.json({
+      id: outfitRow.id,
+      imageUrl: outfitRow.image_url,
+      createdAt: outfitRow.created_at,
+      items: outfitRow.items,
+      promptUsed: combinedPrompt,
+    });
   } catch (e: any) {
     console.error("/api/ai/outfit failed", e);
     return res.status(500).json({ error: e?.message || "Server error" });
+  }
+});
+
+
+router.get("/getOutfits", requireUser, async (req, res) => {
+  const user = (req as any).user;
+  const userId = user?.id as string;
+
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const { data, error } = await supabaseService
+      .from("ai_outfits")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("[AI outfits] failed to fetch", error);
+      return res.status(500).json({ error: "Failed to load AI outfits" });
+    }
+
+    return res.json({
+      outfits: data ?? [],
+    });
+  } catch (err: any) {
+    console.error("[AI outfits] unexpected error", err);
+    return res
+      .status(500)
+      .json({ error: err?.message || "Failed to load AI outfits" });
   }
 });
 
