@@ -36,13 +36,19 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
   const [success, setSuccess] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const hasUploadedImage =
-    formState.imagePath.trim().length > 0 || formState.imageUrl.trim().length > 0;
+    formState.imagePath.trim().length > 0 ||
+    formState.imageUrl.trim().length > 0;
 
-  const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    event: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value, type } = event.target;
     setFormState((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? (event.target as HTMLInputElement).checked : value,
+      [name]:
+        type === "checkbox"
+          ? (event.target as HTMLInputElement).checked
+          : value,
     }));
   };
 
@@ -81,7 +87,9 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
       const payload = await response.json();
       if (!response.ok) {
         const serverError =
-          typeof payload?.error === "string" ? payload.error : "Failed to upload image.";
+          typeof payload?.error === "string"
+            ? payload.error
+            : "Failed to upload image.";
         throw new Error(serverError);
       }
 
@@ -195,29 +203,74 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
         body: JSON.stringify(insertPayload),
       });
 
-      const payload = await response.json().catch(() => ({}));
+      const payload = await response.json().catch(() => ({} as any));
 
       if (!response.ok) {
         const serverError =
-          typeof payload?.error === "string"
-            ? payload.error
+          typeof (payload as any)?.error === "string"
+            ? (payload as any).error
             : "Something went wrong while adding the item.";
         throw new Error(serverError);
       }
 
+      // Try to grab the new item's id from the response
+      const newItemId: string | undefined =
+        (payload as any)?.item?.id?.toString?.() ??
+        (payload as any)?.id?.toString?.();
+
       setSuccess("Item added to your wardrobe!");
-      setFormState(initialState);
       console.log("Wardrobe item saved", {
         imagePath: insertPayload.image_path,
         imageUrl: insertPayload.image_url,
+        newItemId,
       });
+
+      if (newItemId) {
+        try {
+          const aiRes = await fetch("/api/ai/describe-closet-item", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ itemId: newItemId }),
+          });
+
+          const aiPayload = await aiRes.json().catch(() => ({} as any));
+
+          if (!aiRes.ok) {
+            const aiError =
+              typeof (aiPayload as any)?.error === "string"
+                ? (aiPayload as any).error
+                : "Unknown AI description error";
+            console.error("AI description failed:", aiError);
+          } else {
+            console.log(
+              "AI description stored for item:",
+              newItemId,
+              aiPayload
+            );
+          }
+        } catch (aiErr) {
+          console.error("AI description request failed:", aiErr);
+        }
+      } else {
+        console.warn(
+          "No newItemId returned from /api/clothing-items; skipping AI description"
+        );
+      }
+
+      setFormState(initialState);
       setImagePreviewUrl(null);
       setImageUploadError(null);
-      // reload so latest items are visible immediately
+
+      // reload so latest items (and AI description) are visible immediately
       window.location.reload();
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Something went wrong while adding the item.";
+        err instanceof Error
+          ? err.message
+          : "Something went wrong while adding the item.";
       setError(message);
     } finally {
       setIsSubmitting(false);
@@ -249,7 +302,7 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
             <option value="" disabled>
               Select a category
             </option>
-            {CATEGORY_OPTIONS.map(option => (
+            {CATEGORY_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -290,10 +343,16 @@ const WardrobeAddItemForm: React.FC<Props> = ({ onClose }) => {
             ref={fileInputRef}
           />
           {!hasUploadedImage && !imagePreviewUrl && (
-            <p className="wardrobe-form-hint">Upload an image to add this item.</p>
+            <p className="wardrobe-form-hint">
+              Upload an image to add this item.
+            </p>
           )}
-          {isUploadingImage && <p className="wardrobe-form-hint">Uploading image…</p>}
-          {imageUploadError && <p className="wardrobe-form-error">{imageUploadError}</p>}
+          {isUploadingImage && (
+            <p className="wardrobe-form-hint">Uploading image…</p>
+          )}
+          {imageUploadError && (
+            <p className="wardrobe-form-error">{imageUploadError}</p>
+          )}
           {imagePreviewUrl && (
             <img
               src={imagePreviewUrl}
