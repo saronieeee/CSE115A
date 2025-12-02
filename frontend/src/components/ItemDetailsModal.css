@@ -68,7 +68,7 @@
   margin-bottom: 16px;
 }
 
-.category, .color, .times-worn {
+.category, .color, .times-worn, .last-worn {
   margin: 8px 0;
   color: #666;
 }

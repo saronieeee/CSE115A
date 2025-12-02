@@ -275,6 +275,10 @@ router.post("/:id/wear", requireUser, async (req, res) => {
   const user = (req as any).user;
   const userId = user.id;
 
+  // allow optional custom date from client, otherwise use "now"
+  const body = (req.body ?? {}) as { wornAt?: string };
+  const wornAtIso = body.wornAt || new Date().toISOString();
+
   try {
     // Fetch outfit and ensure ownership
     const { data: outfit, error: outfitErr } = await supabaseService
@@ -287,22 +291,23 @@ router.post("/:id/wear", requireUser, async (req, res) => {
       if (outfitErr?.code === "PGRST116") {
         return res.status(404).json({ error: "Outfit not found" });
       }
-      return res.status(500).json({ error: outfitErr?.message || "Failed to fetch outfit" });
+      return res
+        .status(500)
+        .json({ error: outfitErr?.message || "Failed to fetch outfit" });
     }
 
     if (outfit.user_id !== userId) {
       return res.status(403).json({ error: "Forbidden" });
     }
 
-    // Increment outfit.worn_count + set last_worn to now
+    // Increment outfit.worn_count + set last_worn to wornAtIso
     const newWornCount = (outfit.worn_count ?? 0) + 1;
-    const nowIso = new Date().toISOString(); // you can truncate date in UI
 
     const { data: updatedOutfit, error: updateOutfitErr } = await supabaseService
       .from("outfits")
       .update({
         worn_count: newWornCount,
-        last_worn: nowIso,
+        last_worn: wornAtIso,
       })
       .eq("id", outfitId)
       .select("id, name, user_id, worn_count, last_worn")
@@ -332,7 +337,7 @@ router.post("/:id/wear", requireUser, async (req, res) => {
     if (itemIds.length) {
       const { data: items, error: itemsErr } = await supabaseService
         .from("closet_items")
-        .select("id, times_worn, user_id")
+        .select("id, times_worn, last_worn, user_id")
         .in("id", itemIds);
 
       if (itemsErr) {
@@ -340,12 +345,13 @@ router.post("/:id/wear", requireUser, async (req, res) => {
         return res.json({ outfit: updatedOutfit });
       }
 
-      // Only increment items that belong to this user
+      // Only increment items that belong to this user, and also update last_worn
       const updates = (items ?? [])
         .filter((it) => it.user_id === userId)
         .map((it) => ({
           id: it.id,
           times_worn: (it.times_worn ?? 0) + 1,
+          last_worn: wornAtIso,
         }));
 
       if (updates.length) {
@@ -354,7 +360,10 @@ router.post("/:id/wear", requireUser, async (req, res) => {
           .upsert(updates, { onConflict: "id" });
 
         if (updateItemsErr) {
-          console.error("Failed to increment times_worn on closet_items:", updateItemsErr);
+          console.error(
+            "Failed to increment times_worn / last_worn on closet_items:",
+            updateItemsErr
+          );
         }
       }
     }
@@ -365,6 +374,5 @@ router.post("/:id/wear", requireUser, async (req, res) => {
     return res.status(500).json({ error: e?.message || "Server error" });
   }
 });
-
 
 export default router;

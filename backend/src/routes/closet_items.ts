@@ -47,7 +47,7 @@ router.get("/clothing-items/type/:category", requireUser, async (req, res) => {
  */
 router.post("/clothing-items", requireUser, async (req, res) => {
   const user = (req as any).user; // logged-in user
-  const { category, image_path, image_url, occasion, color, favorite, times_worn } = req.body ?? {};
+  const { category, image_path, image_url, occasion, color, favorite, times_worn, last_worn } = req.body ?? {};
 
   if (!category) {
     return res.status(400).json({ error: "Category is required." });
@@ -64,6 +64,7 @@ router.post("/clothing-items", requireUser, async (req, res) => {
   if (color !== undefined) insertObj.color = color;
   if (favorite !== undefined) insertObj.favorite = favorite;
   if (times_worn !== undefined) insertObj.times_worn = times_worn;
+  if (last_worn !== undefined) insertObj.last_worn = last_worn;
 
   const { data, error } = await supabaseService
     .from("closet_items")
@@ -99,13 +100,14 @@ router.delete("/clothing-items/:id", requireUser, async (req, res) => {
 router.patch("/clothing-items/:id", requireUser, async (req, res) => {
   const { id } = req.params;
   const user = (req as any).user;
-  const { favorite, color, occasion, times_worn, category } = req.body ?? {};
+  const { favorite, color, occasion, times_worn, last_worn, category } = req.body ?? {};
 
   const updateFields: Record<string, any> = {};
   if (typeof favorite === "boolean") updateFields.favorite = favorite;
   if (typeof color === "string") updateFields.color = color;
   if (typeof occasion === "string") updateFields.occasion = occasion;
   if (Number.isInteger(times_worn)) updateFields.times_worn = times_worn;
+  if (typeof last_worn === "string") updateFields.last_worn = last_worn;
   if (typeof category === "string") updateFields.category = category.toLowerCase();
 
   if (Object.keys(updateFields).length === 0) {

@@ -1,25 +1,11 @@
-// scripts/batchDescribeAllClosetItems.ts
-//
-// One-time batch script to generate AI descriptions for ALL closet_items
-// that have an image_url and no ai_generated_description yet.
-//
-// Usage:
-//   npx ts-node scripts/batchDescribeAllClosetItems.ts
-// or compile to JS and run with `node`.
-//
-// Make sure env vars are set:
-//   SUPABASE_URL
-//   SUPABASE_SERVICE_ROLE_KEY
-//   OPENAI_API_KEY
-
 import { createClient } from "@supabase/supabase-js";
 import fetch from "node-fetch";
 import "dotenv/config";
 
 
 const VISION_URL = "https://api.openai.com/v1/chat/completions";
-const BATCH_SIZE = 25;         // how many rows to pull from Supabase at a time
-const DELAY_MS = 800;          // short delay between OpenAI calls (~0.8s)
+const BATCH_SIZE = 25;
+const DELAY_MS = 800;        
 
 // ---- Env + client setup ----
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -186,10 +172,10 @@ async function processBatch(offset: number): Promise<number> {
         await updateItemDescription(item.id, description);
         console.log(`  ✓ updated description for item ${item.id}`);
       } else {
-        console.log(`  ⚠️ skipped or failed for item ${item.id}`);
+        console.log(`  skipped or failed for item ${item.id}`);
       }
     } catch (err) {
-      console.error(`  ❌ error processing item ${item.id}`, err);
+      console.error(`  error processing item ${item.id}`, err);
     }
 
     // Short delay between OpenAI calls
@@ -212,7 +198,7 @@ async function main() {
     offset += count;
   }
 
-  console.log("Batch job complete ✅");
+  console.log("Batch job complete");
 }
 
 main().catch((err) => {

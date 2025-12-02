@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import ReactDOM from 'react-dom';
-import './ItemDetailsModal.css';
-import { CATEGORY_OPTIONS } from '../constants/categories';
+import React, { useState } from "react";
+import ReactDOM from "react-dom";
+import "./ItemDetailsModal.css";
+import { CATEGORY_OPTIONS } from "../constants/categories";
 
 interface ItemDetailsModalProps {
   id: string;
@@ -11,6 +11,7 @@ interface ItemDetailsModalProps {
   tags?: string[];
   color?: string;
   times_worn?: number;
+  last_worn?: string | null;
   onClose: () => void;
   onSave: (updatedItem: {
     title: string;
@@ -18,6 +19,7 @@ interface ItemDetailsModalProps {
     tags: string[];
     color: string;
     times_worn: number;
+    last_worn: string | null;
   }) => void;
 }
 
@@ -25,22 +27,26 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
   id,
   imageUrl,
   title: initialTitle,
-  category: initialCategory = '',
+  category: initialCategory = "",
   tags: initialTags = [],
-  color: initialColor = '',
+  color: initialColor = "",
   times_worn: initialTimesWorn = 0,
+  last_worn: initialLastWorn = null,
   onClose,
   onSave,
 }) => {
-  const normalizedInitialCategory = CATEGORY_OPTIONS.some(option => option.value === initialCategory)
+  const normalizedInitialCategory = CATEGORY_OPTIONS.some(
+    (option) => option.value === initialCategory
+  )
     ? initialCategory
-    : '';
+    : "";
   const [isEditing, setIsEditing] = useState(false);
   const [category, setCategory] = useState(normalizedInitialCategory);
   const [tags, setTags] = useState(initialTags);
   const [color, setColor] = useState(initialColor);
   const [timesWorn, setTimesWorn] = useState<number>(initialTimesWorn);
-  const [newTag, setNewTag] = useState('');
+  const [lastWorn, setLastWorn] = useState<string | null>(initialLastWorn);
+  const [newTag, setNewTag] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,29 +56,33 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
       tags,
       color,
       times_worn: timesWorn,
+      last_worn: lastWorn,
     });
+
     setIsEditing(false);
   };
 
   const handleAddTag = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && newTag.trim()) {
+    if (e.key === "Enter" && newTag.trim()) {
       e.preventDefault();
       if (!tags.includes(newTag.trim())) {
         setTags([...tags, newTag.trim()]);
       }
-      setNewTag('');
+      setNewTag("");
     }
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
+    setTags(tags.filter((tag) => tag !== tagToRemove));
   };
 
   const modalContent = (
     <div className="item-details-modal-overlay" onClick={onClose}>
-      <div className="item-details-modal" onClick={e => e.stopPropagation()}>
-        <button className="close-button" onClick={onClose}>×</button>
-        
+      <div className="item-details-modal" onClick={(e) => e.stopPropagation()}>
+        <button className="close-button" onClick={onClose}>
+          ×
+        </button>
+
         <div className="image-section">
           <img src={imageUrl} alt={initialTitle} className="item-image" />
         </div>
@@ -84,10 +94,10 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
               <select
                 id="category"
                 value={category}
-                onChange={e => setCategory(e.target.value)}
+                onChange={(e) => setCategory(e.target.value)}
               >
                 <option value="">Select a category</option>
-                {CATEGORY_OPTIONS.map(option => (
+                {CATEGORY_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
@@ -101,17 +111,17 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
                 type="text"
                 id="color"
                 value={color}
-                onChange={e => setColor(e.target.value)}
+                onChange={(e) => setColor(e.target.value)}
               />
             </div>
 
             <div className="form-group">
               <label htmlFor="tags">Tags</label>
               <div className="tags-container">
-                {tags.map(tag => (
+                {tags.map((tag) => (
                   <span key={tag} className="tag">
                     {tag}
-                    <button 
+                    <button
                       type="button"
                       onClick={() => handleRemoveTag(tag)}
                       className="remove-tag"
@@ -125,41 +135,83 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
                 type="text"
                 id="tags"
                 value={newTag}
-                onChange={e => setNewTag(e.target.value)}
+                onChange={(e) => setNewTag(e.target.value)}
                 onKeyDown={handleAddTag}
                 placeholder="Type and press Enter to add tag"
               />
             </div>
 
+            <div className="form-group">
+              <label htmlFor="timesWorn">Times worn</label>
+              <input
+                type="number"
+                id="timesWorn"
+                min={0}
+                value={timesWorn}
+                onChange={(e) => setTimesWorn(Number(e.target.value) || 0)}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="lastWorn">Last worn</label>
+              <input
+                type="date"
+                id="lastWorn"
+                value={
+                  lastWorn ? new Date(lastWorn).toISOString().slice(0, 10) : ""
+                }
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setLastWorn(val ? new Date(val).toISOString() : null);
+                }}
+              />
+            </div>
+
             <div className="form-actions">
-              <button type="button" onClick={() => setIsEditing(false)}>Cancel</button>
-              <button type="submit" className="save-button">Save Changes</button>
+              <button type="button" onClick={() => setIsEditing(false)}>
+                Cancel
+              </button>
+              <button type="submit" className="save-button">
+                Save Changes
+              </button>
             </div>
           </form>
         ) : (
           <div className="details-section">
             {category && (
               <p className="category">
-                Category:{' '}
-                {CATEGORY_OPTIONS.find(option => option.value === category)?.label || category}
+                Category{" "}
+                {CATEGORY_OPTIONS.find((option) => option.value === category)
+                  ?.label || category}
               </p>
             )}
             {color && <p className="color">Color: {color}</p>}
+
             {tags.length > 0 && (
               <div className="tags">
                 <p>Tags:</p>
                 <div className="tags-container">
-                  {tags.map(tag => (
-                    <span key={tag} className="tag">{tag}</span>
+                  {tags.map((tag) => (
+                    <span key={tag} className="tag">
+                      {tag}
+                    </span>
                   ))}
                 </div>
               </div>
             )}
-            {timesWorn && <p className="times-worn">Times Worn: {timesWorn}</p>}
-            <button 
-              className="edit-button"
-              onClick={() => setIsEditing(true)}
-            >
+
+            {typeof timesWorn === "number" && (
+              <p className="times-worn">Times worn: {timesWorn}</p>
+            )}
+
+            <p className="last-worn">
+              Last worn:{" "}
+              {lastWorn
+                ? new Date(lastWorn).toLocaleDateString()
+                : "Not worn yet"}
+            </p>
+
+            <button className="edit-button" onClick={() => setIsEditing(true)}>
               Edit Details
             </button>
           </div>
