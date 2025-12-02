@@ -12,6 +12,7 @@ import authRouter from "./routes/auth";
 import profileRouter from "./routes/profile";
 import aiRouter from "./routes/ai";
 import bodyProfileRouter from "./routes/body_profile";
+import suggestionsRouter from "./routes/suggestions";
 
 const app = express();
 app.use(morgan("dev"));
@@ -45,6 +46,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/ai", aiRouter);
 app.use("/api/body-profile", bodyProfileRouter);
+app.use("/api/suggestions", suggestionsRouter);
 
 const port = Number(process.env.PORT) || 4000;
 const host = process.env.HOST || "0.0.0.0";

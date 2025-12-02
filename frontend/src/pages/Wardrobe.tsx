@@ -22,6 +22,7 @@ type WardrobeItemType = {
   color?: string | null;
   occasion?: string | null;
   wornCount?: number;
+  lastWorn?: string | null;
 };
 
 const Wardrobe: React.FC = () => {
@@ -58,6 +59,7 @@ const Wardrobe: React.FC = () => {
       tags: string[];
       color: string;
       times_worn: number;
+      last_worn: string | null;
     }
   ) => {
     try {
@@ -88,6 +90,7 @@ const Wardrobe: React.FC = () => {
                 imageUrl: item.image_url || item.image_path || it.imageUrl,
                 favorite: item.favorite,
                 wornCount: item.times_worn ?? it.wornCount,
+                lastWorn: item.last_worn || it.lastWorn,
               }
             : it
         )
@@ -158,7 +161,8 @@ const Wardrobe: React.FC = () => {
             favorite: !!row.favorite,
             color: row.color ?? null,
             occasion: row.occasion ?? null,
-            wornCount: row.times_worn ?? 0, // 👈 safe default
+            wornCount: row.times_worn ?? 0,
+            lastWorn: row.last_worn ?? null,
           }));
 
         let res = await fetch(primaryUrl, {
@@ -547,6 +551,7 @@ const Wardrobe: React.FC = () => {
           tags={selectedItem.tags || []}
           color={selectedItem.color || ""}
           times_worn={selectedItem.wornCount ?? 0}
+          last_worn={selectedItem.lastWorn || null}
           onClose={handleCloseDetails}
           onSave={(updated) => handleSaveDetails(selectedItem.id, updated)}
         />

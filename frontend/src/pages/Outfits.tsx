@@ -52,7 +52,9 @@ const Outfits: React.FC = () => {
   const [err, setErr] = useState<string | null>(null);
 
   const [selectedOutfit, setSelectedOutfit] = useState<OutfitRow | null>(null);
-  const [selectedAiOutfit, setSelectedAiOutfit] = useState<AiOutfitRow | null>(null);
+  const [selectedAiOutfit, setSelectedAiOutfit] = useState<AiOutfitRow | null>(
+    null
+  );
 
   useEffect(() => {
     const ac = new AbortController();
@@ -182,7 +184,6 @@ const Outfits: React.FC = () => {
       const res = await fetch(`/api/outfits/${outfitId}/wear`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: "include",
@@ -247,8 +248,8 @@ const Outfits: React.FC = () => {
           <div className="empty-icon">🧩</div>
           <h3>No outfits yet</h3>
           <p>
-            Create your first outfit from the Wardrobe page, or generate an AI outfit
-            from the AI tab.
+            Create your first outfit from the Wardrobe page, or generate an AI
+            outfit from the AI tab.
           </p>
         </div>
       ) : (

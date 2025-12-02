@@ -13,7 +13,7 @@ router.get("/closet-items", async (_req, res) => {
     const { data, error } = await supabaseService
       .from("closet_items")
       .select(
-        "id,user_id,image_path,image_url,category,occasion,color,favorite,times_worn"
+        "id,user_id,image_path,image_url,category,occasion,color,favorite,times_worn,last_worn"
       );
 
     if (error) return res.status(500).json({ error: error.message });

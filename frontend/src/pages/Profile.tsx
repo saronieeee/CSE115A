@@ -3,6 +3,25 @@ import { useNavigate } from "react-router-dom";
 import "./Profile.css";
 import StatCard from "../components/StatCard";
 
+type DonationSuggestionLevel = "keep" | "maybe_donate" | "donate";
+
+type DonationSuggestion = {
+  level: DonationSuggestionLevel;
+  score: number;
+  reason: string;
+};
+
+type DonationItem = {
+  id: string;
+  title?: string | null;
+  category?: string | null;
+  color?: string | null;
+  image_url?: string | null;
+  times_worn?: number | null;
+  last_worn?: string | null;
+  suggestion: DonationSuggestion;
+};
+
 type Stat = {
   title: string;
   value?: string;
@@ -28,6 +47,9 @@ const Profile: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [storedEmail, setStoredEmail] = useState<string | null>(null);
+  const [donationItems, setDonationItems] = useState<DonationItem[]>([]);
+  const [styleSummary, setStyleSummary] = useState<string | null>(null); // 👈 NEW
+
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -119,6 +141,90 @@ const Profile: React.FC = () => {
               continue;
             }
 
+            try {
+              const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+              if (token) {
+                const suggRes = await fetch(
+                  "/api/suggestions/donation-suggestions",
+                  {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: controller.signal,
+                  }
+                );
+
+                if (suggRes.ok) {
+                  const suggJson = await suggRes.json();
+                  const items = Array.isArray(suggJson?.items)
+                    ? suggJson.items
+                    : [];
+                  setDonationItems(items);
+                  console.log("Donation suggestions from API:", items);
+                } else {
+                  console.warn(
+                    "Failed to load donation suggestions",
+                    suggRes.status
+                  );
+                  setDonationItems([]);
+                }
+              }
+            } catch (e) {
+              if ((e as any)?.name !== "AbortError") {
+                console.warn("Donation suggestions error", e);
+              }
+              setDonationItems([]);
+            }
+            // 👉 NEW: fetch donation suggestions for this user
+            try {
+              const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+              if (token) {
+                const suggRes = await fetch(
+                  "/api/suggestions/donation-suggestions",
+                  {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: controller.signal,
+                  }
+                );
+
+                if (suggRes.ok) {
+                  const suggJson = await suggRes.json();
+                  const items = Array.isArray(suggJson?.items)
+                    ? suggJson.items
+                    : [];
+                  setDonationItems(items);
+                } else {
+                  console.warn(
+                    "Failed to load donation suggestions",
+                    suggRes.status
+                  );
+                  setDonationItems([]);
+                }
+
+                // 👇 NEW: style summary fetch
+                const styleRes = await fetch("/api/suggestions/style-summary", {
+                  headers: { Authorization: `Bearer ${token}` },
+                  signal: controller.signal,
+                });
+
+                if (styleRes.ok) {
+                  const styleJson = await styleRes.json();
+                  setStyleSummary(
+                    typeof styleJson?.summary === "string"
+                      ? styleJson.summary
+                      : null
+                  );
+                } else {
+                  console.warn("Failed to load style summary", styleRes.status);
+                  setStyleSummary(null);
+                }
+              }
+            } catch (e) {
+              if ((e as any)?.name !== "AbortError") {
+                console.warn("Donation / style suggestions error", e);
+              }
+              setDonationItems([]);
+              setStyleSummary(null); // 👈 ensure reset on error
+            }
+
             setData(payload as DashboardPayload);
             setErr(null);
             return;
@@ -155,6 +261,9 @@ const Profile: React.FC = () => {
   }, [data?.profile?.email]);
 
   const stats = data?.stats ?? [];
+  const donationCandidates = donationItems.filter(
+    (i) => i.suggestion?.level !== "keep"
+  );
 
   // normalize “Total Items” card so the subtitle always reads
   const displayStats = stats.map((stat) => {
@@ -224,6 +333,13 @@ const Profile: React.FC = () => {
       </section>
 
       <h3 className="section-title">Wardrobe Statistics</h3>
+              {/* AI style summary */}
+        {styleSummary && (
+          <section className="style-summary-card">
+            <h3 className="section-title">Your style, in a nutshell</h3>
+            <p className="style-summary-text">{styleSummary}</p>
+          </section>
+        )}
       <section className="stats-grid">
         {displayStats.map((s) => {
           const isFavorites = s.title?.toLowerCase() === "favorites";
@@ -246,6 +362,59 @@ const Profile: React.FC = () => {
           );
         })}
       </section>
+      {/* Donation suggestions section */}
+      <>
+        <h3 className="section-title">Items you might want to donate</h3>
+
+        {donationCandidates.length === 0 ? (
+          <p className="donation-empty">
+            Nothing stands out for donation right now — your wardrobe looks well
+            used!
+          </p>
+        ) : (
+          <section className="donation-grid">
+            {donationCandidates.slice(0, 8).map((item) => (
+              <div
+                key={item.id}
+                className={`donation-card donation-${item.suggestion.level}`}
+              >
+                {item.image_url && (
+                  <div className="donation-thumb">
+                    <img
+                      src={item.image_url}
+                      alt={item.title || "Closet item"}
+                    />
+                  </div>
+                )}
+                <div className="donation-body">
+                  <div className="donation-title-row">
+                    <p className="donation-title">
+                      {item.title || item.category || "Unnamed item"}
+                    </p>
+                    <span className="donation-chip">
+                      {item.suggestion.level === "donate"
+                        ? "Donate"
+                        : "Maybe donate"}
+                    </span>
+                  </div>
+                  <p className="donation-reason">{item.suggestion.reason}</p>
+                  {typeof item.times_worn === "number" && (
+                    <p className="donation-meta">
+                      Worn {item.times_worn}×
+                      {item.last_worn
+                        ? ` · Last worn ${new Date(
+                            item.last_worn
+                          ).toLocaleDateString()}`
+                        : " · Never worn"}
+                    </p>
+                  )}
+                  {/* 👉 AI style summary */}
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+      </>
     </div>
   );
 };
