@@ -157,12 +157,10 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
               <input
                 type="date"
                 id="lastWorn"
-                value={
-                  lastWorn ? new Date(lastWorn).toISOString().slice(0, 10) : ""
-                }
+                value={lastWorn ? lastWorn.slice(0, 10) : ""}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  setLastWorn(val ? new Date(val).toISOString() : null);
+                  const val = e.target.value; // "YYYY-MM-DD"
+                  setLastWorn(val || null); // store date-only string, no timezone
                 }}
               />
             </div>
@@ -207,7 +205,7 @@ const ItemDetailsModal: React.FC<ItemDetailsModalProps> = ({
             <p className="last-worn">
               Last worn:{" "}
               {lastWorn
-                ? new Date(lastWorn).toLocaleDateString()
+                ? lastWorn.slice(0, 10) // or format it nicer if you want later
                 : "Not worn yet"}
             </p>
 
