@@ -333,7 +333,7 @@ const Profile: React.FC = () => {
       </section>
 
       <h3 className="section-title">Wardrobe Statistics</h3>
-              {/* 👉 AI style summary */}
+              {/* AI style summary */}
         {styleSummary && (
           <section className="style-summary-card">
             <h3 className="section-title">Your style, in a nutshell</h3>
