@@ -48,6 +48,7 @@ const Profile: React.FC = () => {
   const [err, setErr] = useState<string | null>(null);
   const [storedEmail, setStoredEmail] = useState<string | null>(null);
   const [donationItems, setDonationItems] = useState<DonationItem[]>([]);
+  const [styleSummary, setStyleSummary] = useState<string | null>(null); // 👈 NEW
 
   const navigate = useNavigate();
 
@@ -158,7 +159,6 @@ const Profile: React.FC = () => {
                     : [];
                   setDonationItems(items);
                   console.log("Donation suggestions from API:", items);
-
                 } else {
                   console.warn(
                     "Failed to load donation suggestions",
@@ -172,6 +172,57 @@ const Profile: React.FC = () => {
                 console.warn("Donation suggestions error", e);
               }
               setDonationItems([]);
+            }
+            // 👉 NEW: fetch donation suggestions for this user
+            try {
+              const token = localStorage.getItem("DTI_ACCESS_TOKEN");
+              if (token) {
+                const suggRes = await fetch(
+                  "/api/suggestions/donation-suggestions",
+                  {
+                    headers: { Authorization: `Bearer ${token}` },
+                    signal: controller.signal,
+                  }
+                );
+
+                if (suggRes.ok) {
+                  const suggJson = await suggRes.json();
+                  const items = Array.isArray(suggJson?.items)
+                    ? suggJson.items
+                    : [];
+                  setDonationItems(items);
+                } else {
+                  console.warn(
+                    "Failed to load donation suggestions",
+                    suggRes.status
+                  );
+                  setDonationItems([]);
+                }
+
+                // 👇 NEW: style summary fetch
+                const styleRes = await fetch("/api/suggestions/style-summary", {
+                  headers: { Authorization: `Bearer ${token}` },
+                  signal: controller.signal,
+                });
+
+                if (styleRes.ok) {
+                  const styleJson = await styleRes.json();
+                  setStyleSummary(
+                    typeof styleJson?.summary === "string"
+                      ? styleJson.summary
+                      : null
+                  );
+                } else {
+                  console.warn("Failed to load style summary", styleRes.status);
+                  setStyleSummary(null);
+                }
+              }
+            } catch (e) {
+              if ((e as any)?.name !== "AbortError") {
+                console.warn("Donation / style suggestions error", e);
+              }
+              setDonationItems([]);
+              setStyleSummary(null); // 👈 ensure reset on error
             }
 
             setData(payload as DashboardPayload);
@@ -282,6 +333,13 @@ const Profile: React.FC = () => {
       </section>
 
       <h3 className="section-title">Wardrobe Statistics</h3>
+              {/* 👉 AI style summary */}
+        {styleSummary && (
+          <section className="style-summary-card">
+            <h3 className="section-title">Your style, in a nutshell</h3>
+            <p className="style-summary-text">{styleSummary}</p>
+          </section>
+        )}
       <section className="stats-grid">
         {displayStats.map((s) => {
           const isFavorites = s.title?.toLowerCase() === "favorites";
@@ -310,8 +368,8 @@ const Profile: React.FC = () => {
 
         {donationCandidates.length === 0 ? (
           <p className="donation-empty">
-            Nothing stands out for donation right now — your wardrobe looks
-            well used!
+            Nothing stands out for donation right now — your wardrobe looks well
+            used!
           </p>
         ) : (
           <section className="donation-grid">
@@ -339,9 +397,7 @@ const Profile: React.FC = () => {
                         : "Maybe donate"}
                     </span>
                   </div>
-                  <p className="donation-reason">
-                    {item.suggestion.reason}
-                  </p>
+                  <p className="donation-reason">{item.suggestion.reason}</p>
                   {typeof item.times_worn === "number" && (
                     <p className="donation-meta">
                       Worn {item.times_worn}×
@@ -352,13 +408,13 @@ const Profile: React.FC = () => {
                         : " · Never worn"}
                     </p>
                   )}
+                  {/* 👉 AI style summary */}
                 </div>
               </div>
             ))}
           </section>
         )}
       </>
-
     </div>
   );
 };

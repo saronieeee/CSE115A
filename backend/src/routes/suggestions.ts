@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { supabaseService } from "../lib/supabase";
 import { requireUser } from "../lib/requireUser";
+import fetch from "node-fetch";
 
 const router = Router();
+const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
 
 type ClosetItemRow = {
   id: string;
@@ -64,7 +66,7 @@ function computeDonationSuggestion(item: ClosetItemRow): DonationSuggestion {
   // 2) Strong donate candidates: basically forgotten
   //    - worn at most once
   //    - not touched in over a year
-  if (timesWorn <= 1 && daysSinceLastWorn >= 365) {
+  if (timesWorn <= 5 && daysSinceLastWorn >= 365) {
     return {
       level: "donate",
       score: 1.0,
@@ -156,5 +158,109 @@ router.get("/donation-suggestions", requireUser, async (req, res) => {
       .json({ error: e?.message || "Server error generating suggestions" });
   }
 });
+
+// GET /api/suggestions/style-summary
+// Returns 1–2 sentences describing the user's overall clothing style
+router.get("/style-summary", requireUser, async (req, res) => {
+  const user = (req as any).user;
+  const userId = user.id;
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    return res.status(500).json({ error: "OpenAI is not configured" });
+  }
+
+  try {
+    // 1️⃣ Pull ai_generated_description for this user's items
+    const { data: items, error } = await supabaseService
+      .from("closet_items")
+      .select("ai_generated_description")
+      .eq("user_id", userId)
+      .not("ai_generated_description", "is", null)
+      .limit(150); // safety cap
+
+    if (error) {
+      console.error("[style-summary] fetch error", error);
+      return res
+        .status(500)
+        .json({ error: error.message || "Failed to load closet items" });
+    }
+
+    const descriptions = (items || [])
+      .map((it) => (it as any).ai_generated_description as string | null)
+      .filter((d) => typeof d === "string" && d.trim().length > 0);
+
+    if (!descriptions.length) {
+      // nothing to summarize yet
+      return res.json({ summary: null });
+    }
+
+    // 2️⃣ Build a compact prompt from descriptions
+    const joined = descriptions.slice(0, 80).join("\n- ");
+
+    const chatBody = {
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a friendly wardrobe assistant. You will receive short descriptions of a user's clothing items. " +
+            "Infer their overall style and write 1–2 concise sentences describing what they tend to wear, " +
+            "mentioning patterns like colors, fits, and occasions. Do not mention that you are reading descriptions.",
+        },
+        {
+          role: "user",
+          content:
+            "Here are some of my clothing items:\n- " +
+            joined +
+            "\n\nPlease describe my general clothing style in 1–2 sentences.",
+        },
+      ],
+      max_tokens: 120,
+      temperature: 0.5,
+    };
+
+    const aiRes = await fetch(OPENAI_CHAT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(chatBody),
+    });
+
+    const rawText = await aiRes.text();
+    let payload: any;
+    try {
+      payload = JSON.parse(rawText);
+    } catch {
+      payload = rawText;
+    }
+
+    if (!aiRes.ok) {
+      console.error("[style-summary] OpenAI error", payload);
+      const msg =
+        (payload &&
+          typeof payload === "object" &&
+          payload.error &&
+          payload.error.message) ||
+        aiRes.statusText ||
+        "Failed to generate style summary";
+      return res.status(aiRes.status || 500).json({ error: msg });
+    }
+
+    const summary =
+      payload?.choices?.[0]?.message?.content?.trim() ||
+      "We couldn’t infer your style yet.";
+
+    return res.json({ summary });
+  } catch (e: any) {
+    console.error("[style-summary] unexpected", e);
+    return res
+      .status(500)
+      .json({ error: e?.message || "Server error generating style summary" });
+  }
+});
+
 
 export default router;

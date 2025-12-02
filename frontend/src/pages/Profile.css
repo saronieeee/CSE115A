@@ -233,3 +233,18 @@
   margin: 0;
 }
 
+.style-summary-card {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 16px;
+}
+
+.style-summary-text {
+  margin-top: 4px;
+  font-size: 14px;
+  color: #0f172a;
+}
+
